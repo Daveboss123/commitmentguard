@@ -110,13 +110,36 @@ The suite drives the real seeded repository through the service layer:
 - [x] Product builds clean: typecheck / lint / tests / benchmark / build
 - [x] Docs: README, ARCHITECTURE, INTEGRATIONS, BENCHMARK, SECURITY,
       BUILD_NOTES
-- [ ] Commit + push to a **public GitHub repo** (all feature work is
-      currently uncommitted; awaiting explicit go-ahead from the user)
-- [ ] Deploy to Vercel (team `team_nYeRt65eUjsMoUxjjSsq4roh`) with
-      `KITE_MODE=mock`, `SERV_API_KEY`, `AUTH_SECRET`; smoke-test the full
-      hosted flow: extract → confirm → analyse → block A / allow B → consent
-      → simulated execution → receipt verify
+- [x] Public GitHub repo: <https://github.com/Daveboss123/commitmentguard>
+      (initial feature commit `ec688e0`, 142 files; secrets verified absent —
+      `.env*`/`/.data/` gitignored, staged diff scanned for key strings)
+- [x] Deployed to Vercel: <https://commitmentguard.vercel.app>
+      (project `commitmentguard`, `prj_pGkAl3doQsqZ96Hmg3l7Ea56kiW5`,
+      production deploy of commit `6f81c6a` with environment variables:
+      `KITE_MODE=mock`, `KITE_EXECUTION_MODE=simulated`,
+      `KITE_MAX_*_USDC=0.05`, `DEMO_PERSIST=false`, `SERV_API_KEY` and a
+      freshly generated `AUTH_SECRET`, both stored as sensitive values)
+- [x] Hosted end-to-end smoke test **passed 2026-11-08** on production:
+      1. `/api/health` → `storage: memory`, SERV configured, Kite
+         `mock_mode`; live SERV probe `reachable: true` (real chatcmpl id)
+      2. Sign-in (`cg_session`) → household resolves
+      3. **Live SERV intent extraction** → confirmed
+      4. Offer A analysis → **block**
+         (`MAX_CONTRACT_MONTHS`, `BENEFIT_NOT_RETAINED`, `HIGHER_TOTAL_COST`,
+         `FIXED_TERM_COMMITMENT`), payment attempted → approval refused with
+         typed `HARD_CONSTRAINT_VIOLATION`
+      5. Offer B analysis → **allow**, 12-month totals $900.00 proposed vs
+         $1,020.00 current (90000 / 102000 integer minor units)
+
+      6. Approval recorded (empty acknowledgement set is correct: B has no
+         high/critical consequences)
+      7. Capped Kite mock session → simulated Passport approval→ executed
+         **$0.05, `SIMULATED-KITE-*` reference, labelled simulated**
+      8. Second execute attempt refused: `409 EXECUTION_ALREADY_SUBMITTED`
+      9. Receipt chain `analysis#1 (genesis) → analysis#2 → approval#3 →
+         execution#4`: every hash recomputes `valid: true`, `chainValid:
+         true`, genesis correctly unlinked
 - [ ] Demo link / short video
-- [ ] Short write-up (SERV Reasoning usage: extraction + separate
+- [ ] Short write-up (SERV Reasoning usage: live extraction + separate
       explanations; deterministic engine decides)
 - [ ] X post with the repo/demo link

@@ -150,6 +150,8 @@ export interface UserPolicy {
   mustNotHave: string[];
   softPreferences: string[];
   unknownCriticalTermsPolicy: "review" | "block";
+  /** Optional cap on one-off fees (installation + activation), in minor units. */
+  maxOneTimeFeeMinor?: number | null;
   approvalRequiredFor: string[];
   createdAt: string;
 }
@@ -241,6 +243,10 @@ export interface Offer {
   facts: ExtractedFact[];
   evidence: Evidence[];
   extractionSource: OfferExtractionSource;
+  /** Recorded extraction metadata, when the extraction service reported it. */
+  extractionModel?: string | null;
+  extractionLatencyMs?: number | null;
+  extractionResponseId?: string | null;
   status: "draft" | "ready" | "needs_verification";
   createdAt: string;
   updatedAt: string;
@@ -288,11 +294,32 @@ export interface DecisionReason {
   evidenceIds: string[];
 }
 
+/**
+ * One auditable component of a total-cost figure.
+ *
+ * Every displayed dollar amount must be reproducible from its line items:
+ * amount × quantity over an explicit month range, in integer minor units.
+ */
 export interface TcoLine {
+  /** Stable within an analysis, e.g. "proposed:standard-price". */
+  id: string;
   label: string;
+  /** Per-month (or one-off) amount in integer minor units. Negative = saving. */
   monthlyMinor: number;
   months: number;
   subtotalMinor: number;
+  frequency: "monthly" | "one_off";
+  quantity: number;
+  currency: string;
+  /** 1-based inclusive month in the horizon. Null for a one-off charge. */
+  startMonth: number | null;
+  endMonth: number | null;
+  /** Evidence that supports the amount, when the amount came from a quote. */
+  sourceEvidenceId: string | null;
+  /** Whether the subtotal is part of the reported total. */
+  includedInTotal: boolean;
+  direction: "cost" | "saving" | "neutral";
+  calculationExplanation: string;
 }
 
 export interface TcoResult {
@@ -301,6 +328,8 @@ export interface TcoResult {
   complete: boolean;
   missingFields: string[];
   lines: TcoLine[];
+  /** Version of the cost model, recorded in the analysis hash and receipts. */
+  calculationVersion: string;
 }
 
 export interface ComparisonTotals {

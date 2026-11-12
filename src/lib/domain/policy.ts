@@ -223,6 +223,29 @@ export function evaluateConstraints(context: ConstraintContext): ConstraintResul
   }
 
   // 6. Fees and unknowns that prevent a safe total.
+  if (
+    (policy.maxOneTimeFeeMinor ?? null) !== null &&
+    terms.installationFeeMinor !== null &&
+    terms.activationFeeMinor !== null
+  ) {
+    const oneTimeTotal =
+      terms.installationFeeMinor + terms.activationFeeMinor;
+    if (oneTimeTotal > (policy.maxOneTimeFeeMinor as number)) {
+      block(
+        "ONE_TIME_FEE_EXCEEDS_LIMIT",
+        "One-off fees exceed the household limit",
+        `Installation and activation total ${formatMoneyMinor(
+          oneTimeTotal,
+          offer.currency,
+        )}, above the confirmed one-off limit of ${formatMoneyMinor(
+          policy.maxOneTimeFeeMinor as number,
+          offer.currency,
+        )}.`,
+        evidenceIdsFor(offer, ["installationFeeMinor", "activationFeeMinor"]),
+        "maxOneTimeFeeMinor",
+      );
+    }
+  }
   if (terms.installationFeeMinor === null) {
     unknowns.push("Installation fee is unknown");
   }

@@ -158,6 +158,72 @@ describe("total cost of ownership", () => {
     expect(totals.delta24Minor).toBe(-24_000);
     expect(totals.averageMonthlySaving12Minor).toBe(1_000);
   });
+
+  it("makes every displayed total reproducible from its line items", () => {
+    const offerA = offers.find((item) => item.id === "offer_brightwave_a")!;
+    const offerB = offers.find((item) => item.id === "offer_harborlink_b")!;
+    const horizons = [12, 24] as const;
+
+    for (const horizonMonths of horizons) {
+      const current = calculateCurrentTco({
+        commitments,
+        benefits,
+        dependencies,
+        horizonMonths,
+      });
+      const proposedA = calculateProposedTco(
+        { commitments, benefits, dependencies, horizonMonths },
+        offerA,
+      );
+      const proposedB = calculateProposedTco(
+        { commitments, benefits, dependencies, horizonMonths },
+        offerB,
+      );
+
+      for (const tco of [current, proposedA, proposedB]) {
+        expect(tco.complete).toBe(true);
+        expect(tco.calculationVersion).toBe("tco-1.1.0");
+        const summed = tco.lines
+          .filter((line) => line.includedInTotal)
+          .reduce((total, line) => total + line.subtotalMinor, 0);
+        expect(summed).toBe(tco.totalMinor);
+        for (const line of tco.lines) {
+          expect(line.quantity).toBe(
+            line.frequency === "one_off" ? 1 : line.months,
+          );
+          expect(line.subtotalMinor).toBe(line.monthlyMinor * line.quantity);
+          expect(line.calculationExplanation.length).toBeGreaterThan(0);
+        }
+      }
+    }
+  });
+
+  it("explains each Offer A component over 24 months", () => {
+    const offerA = offers.find((item) => item.id === "offer_brightwave_a")!;
+    const proposed24 = calculateProposedTco(
+      { commitments, benefits, dependencies, horizonMonths: 24 },
+      offerA,
+    );
+    const byId = Object.fromEntries(
+      proposed24.lines.map((line) => [line.id, line]),
+    );
+
+    expect(byId["proposed:promotional-price"].subtotalMinor).toBe(18_000);
+    expect(byId["proposed:standard-price"].subtotalMinor).toBe(99_000);
+    expect(byId["proposed:standard-price"].startMonth).toBe(7);
+    expect(byId["proposed:standard-price"].endMonth).toBe(24);
+    expect(byId["proposed:installation-fee"].subtotalMinor).toBe(7_000);
+    expect(byId["proposed:equipment-rental"].subtotalMinor).toBe(12_000);
+    expect(
+      byId["proposed:commitment:cm_mobile_northline"].subtotalMinor,
+    ).toBe(144_000);
+    expect(
+      proposed24.lines.some(
+        (line) => line.label === "Benefit retained: Family mobile bundle discount",
+      ),
+    ).toBe(false);
+    expect(proposed24.totalMinor).toBe(280_000);
+  });
 });
 
 describe("deterministic decision engine", () => {

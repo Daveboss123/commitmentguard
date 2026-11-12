@@ -8,7 +8,9 @@ import type {
   TcoLine,
   TcoResult,
 } from "./types";
-import { addMinor, multiplyMinor } from "./money";
+import { addMinor, formatMoneyMinor, multiplyMinor } from "./money";
+
+export const TCO_CALCULATION_VERSION = "tco-1.1.0";
 
 export interface TcoInput {
   commitments: Commitment[];
@@ -21,13 +23,106 @@ function activeOnly<T extends { status: string }>(items: T[]): T[] {
   return items.filter((item) => item.status === "active");
 }
 
-function pushLine(lines: TcoLine[], label: string, monthlyMinor: number, months: number) {
-  lines.push({
-    label,
-    monthlyMinor,
-    months,
-    subtotalMinor: multiplyMinor(monthlyMinor, months),
+interface LineSpec {
+  id: string;
+  label: string;
+  monthlyMinor: number;
+  months: number;
+  frequency: TcoLine["frequency"];
+  quantity: number;
+  currency: string;
+  startMonth: number | null;
+  endMonth: number | null;
+  sourceEvidenceId: string | null;
+  explanation: string;
+}
+
+function toLine(spec: LineSpec): TcoLine {
+  const subtotalMinor = multiplyMinor(spec.monthlyMinor, spec.quantity);
+  return {
+    id: spec.id,
+    label: spec.label,
+    monthlyMinor: spec.monthlyMinor,
+    months: spec.months,
+    subtotalMinor,
+    frequency: spec.frequency,
+    quantity: spec.quantity,
+    currency: spec.currency,
+    startMonth: spec.startMonth,
+    endMonth: spec.endMonth,
+    sourceEvidenceId: spec.sourceEvidenceId,
+    includedInTotal: true,
+    direction:
+      spec.monthlyMinor < 0
+        ? "saving"
+        : spec.monthlyMinor > 0
+          ? "cost"
+          : "neutral",
+    calculationExplanation: spec.explanation,
+  };
+}
+
+function monthlyExplanation(
+  label: string,
+  monthlyMinor: number,
+  months: number,
+  currency: string,
+): string {
+  return `${label}: ${formatMoneyMinor(monthlyMinor, currency)} × ${months} month${
+    months === 1 ? "" : "s"
+  } = ${formatMoneyMinor(multiplyMinor(monthlyMinor, months), currency)}`;
+}
+
+function recurringLine(input: {
+  id: string;
+  label: string;
+  monthlyMinor: number;
+  months: number;
+  currency: string;
+  sourceEvidenceId: string | null;
+}): TcoLine {
+  return toLine({
+    ...input,
+    frequency: "monthly",
+    quantity: input.months,
+    startMonth: 1,
+    endMonth: input.months,
+    explanation: monthlyExplanation(
+      input.label,
+      input.monthlyMinor,
+      input.months,
+      input.currency,
+    ),
   });
+}
+
+function oneOffLine(input: {
+  id: string;
+  label: string;
+  amountMinor: number;
+  currency: string;
+  sourceEvidenceId: string | null;
+}): TcoLine {
+  return toLine({
+    id: input.id,
+    label: input.label,
+    monthlyMinor: input.amountMinor,
+    months: 1,
+    frequency: "one_off",
+    quantity: 1,
+    currency: input.currency,
+    startMonth: 1,
+    endMonth: 1,
+    sourceEvidenceId: input.sourceEvidenceId,
+    explanation: `${input.label}: ${formatMoneyMinor(
+      input.amountMinor,
+      input.currency,
+    )} one-off = ${formatMoneyMinor(input.amountMinor, input.currency)}`,
+  });
+}
+
+function commitmentEvidenceId(commitment: Commitment): string | null {
+  return commitment.evidenceIds[0] ?? null;
 }
 
 /** Current household cost across all active commitments. */
@@ -39,23 +134,44 @@ export function calculateCurrentTco(input: TcoInput): TcoResult {
   for (const commitment of activeOnly(input.commitments)) {
     const label = `${commitment.providerName} — ${commitment.planName}`;
     if (commitment.billingPeriod === "monthly") {
-      pushLine(lines, label, commitment.recurringChargeMinor, horizonMonths);
+      lines.push(
+        recurringLine({
+          id: `current:commitment:${commitment.id}`,
+          label,
+          monthlyMinor: commitment.recurringChargeMinor,
+          months: horizonMonths,
+          currency: commitment.currency,
+          sourceEvidenceId: commitmentEvidenceId(commitment),
+        }),
+      );
     } else if (commitment.billingPeriod === "annual") {
       const years = Math.floor(horizonMonths / 12);
       const remainder = horizonMonths % 12;
       if (years > 0) {
-        pushLine(lines, `${label} (annual)`, commitment.recurringChargeMinor, years);
+        lines.push(
+          recurringLine({
+            id: `current:commitment:${commitment.id}:annual`,
+            label: `${label} (annual billing)`,
+            monthlyMinor: commitment.recurringChargeMinor,
+            months: years,
+            currency: commitment.currency,
+            sourceEvidenceId: commitmentEvidenceId(commitment),
+          }),
+        );
       }
       if (remainder > 0) {
         missingFields.push(`${label}: annual charge cannot be pro-rated safely`);
       }
     } else {
-      lines.push({
-        label,
-        monthlyMinor: commitment.recurringChargeMinor,
-        months: 1,
-        subtotalMinor: commitment.recurringChargeMinor,
-      });
+      lines.push(
+        oneOffLine({
+          id: `current:commitment:${commitment.id}:one-off`,
+          label,
+          amountMinor: commitment.recurringChargeMinor,
+          currency: commitment.currency,
+          sourceEvidenceId: commitmentEvidenceId(commitment),
+        }),
+      );
     }
   }
 
@@ -65,19 +181,26 @@ export function calculateCurrentTco(input: TcoInput): TcoResult {
       continue;
     }
     if (benefit.billingPeriod === "monthly") {
-      pushLine(
-        lines,
-        `Benefit: ${benefit.description}`,
-        -benefit.valueMinor,
-        horizonMonths,
+      lines.push(
+        recurringLine({
+          id: `current:benefit:${benefit.id}`,
+          label: `Benefit: ${benefit.description}`,
+          monthlyMinor: -benefit.valueMinor,
+          months: horizonMonths,
+          currency: benefit.currency,
+          sourceEvidenceId: benefit.evidenceId,
+        }),
       );
     } else {
-      lines.push({
-        label: `Benefit: ${benefit.description}`,
-        monthlyMinor: -benefit.valueMinor,
-        months: 1,
-        subtotalMinor: -benefit.valueMinor,
-      });
+      lines.push(
+        oneOffLine({
+          id: `current:benefit:${benefit.id}:one-off`,
+          label: `Benefit: ${benefit.description}`,
+          amountMinor: -benefit.valueMinor,
+          currency: benefit.currency,
+          sourceEvidenceId: benefit.evidenceId,
+        }),
+      );
     }
   }
 
@@ -86,7 +209,14 @@ export function calculateCurrentTco(input: TcoInput): TcoResult {
     ? addMinor(lines.map((line) => line.subtotalMinor))
     : null;
 
-  return { horizonMonths, totalMinor, complete, missingFields, lines };
+  return {
+    horizonMonths,
+    totalMinor,
+    complete,
+    missingFields,
+    lines,
+    calculationVersion: TCO_CALCULATION_VERSION,
+  };
 }
 
 /**
@@ -117,6 +247,10 @@ function replacedServiceTypes(offer: Offer): Set<string> {
   return new Set([offer.serviceType]);
 }
 
+function offerEvidenceId(offer: Offer, field: string): string | null {
+  return offer.evidence.find((item) => item.normalizedField === field)?.id ?? null;
+}
+
 /**
  * Household cost under the proposed arrangement.
  *
@@ -127,6 +261,7 @@ function replacedServiceTypes(offer: Offer): Set<string> {
 export function calculateProposedTco(input: TcoInput, offer: Offer): TcoResult {
   const { horizonMonths } = input;
   const terms = offer.terms;
+  const currency = terms.currency ?? offer.currency;
   const lines: TcoLine[] = [];
   const missingFields: string[] = [];
   const replaced = replacedServiceTypes(offer);
@@ -139,24 +274,45 @@ export function calculateProposedTco(input: TcoInput, offer: Offer): TcoResult {
   // Services that are not being replaced continue at their current price.
   for (const commitment of activeOnly(input.commitments)) {
     if (replacedCommitmentIds.has(commitment.id)) continue;
-    const label = `${commitment.providerName} — ${commitment.planName}`;
+    const label = `${commitment.providerName} — ${commitment.planName} (unchanged)`;
     if (commitment.billingPeriod === "monthly") {
-      pushLine(lines, label, commitment.recurringChargeMinor, horizonMonths);
+      lines.push(
+        recurringLine({
+          id: `proposed:commitment:${commitment.id}`,
+          label,
+          monthlyMinor: commitment.recurringChargeMinor,
+          months: horizonMonths,
+          currency: commitment.currency,
+          sourceEvidenceId: commitmentEvidenceId(commitment),
+        }),
+      );
     } else if (commitment.billingPeriod === "annual") {
       const years = Math.floor(horizonMonths / 12);
       if (years > 0) {
-        pushLine(lines, `${label} (annual)`, commitment.recurringChargeMinor, years);
+        lines.push(
+          recurringLine({
+            id: `proposed:commitment:${commitment.id}:annual`,
+            label: `${label} (annual billing)`,
+            monthlyMinor: commitment.recurringChargeMinor,
+            months: years,
+            currency: commitment.currency,
+            sourceEvidenceId: commitmentEvidenceId(commitment),
+          }),
+        );
       }
       if (horizonMonths % 12 > 0) {
         missingFields.push(`${label}: annual charge cannot be pro-rated safely`);
       }
     } else {
-      lines.push({
-        label,
-        monthlyMinor: commitment.recurringChargeMinor,
-        months: 1,
-        subtotalMinor: commitment.recurringChargeMinor,
-      });
+      lines.push(
+        oneOffLine({
+          id: `proposed:commitment:${commitment.id}:one-off`,
+          label,
+          amountMinor: commitment.recurringChargeMinor,
+          currency: commitment.currency,
+          sourceEvidenceId: commitmentEvidenceId(commitment),
+        }),
+      );
     }
   }
 
@@ -176,11 +332,15 @@ export function calculateProposedTco(input: TcoInput, offer: Offer): TcoResult {
         missingFields.push(`Benefit "${benefit.description}" has no verified value`);
         continue;
       }
-      pushLine(
-        lines,
-        `Benefit retained: ${benefit.description}`,
-        -benefit.valueMinor,
-        benefit.billingPeriod === "monthly" ? horizonMonths : 1,
+      lines.push(
+        recurringLine({
+          id: `proposed:benefit:${benefit.id}:retained`,
+          label: `Benefit retained: ${benefit.description}`,
+          monthlyMinor: -benefit.valueMinor,
+          months: benefit.billingPeriod === "monthly" ? horizonMonths : 1,
+          currency: benefit.currency,
+          sourceEvidenceId: benefit.evidenceId,
+        }),
       );
       continue;
     }
@@ -198,11 +358,15 @@ export function calculateProposedTco(input: TcoInput, offer: Offer): TcoResult {
       missingFields.push(`Benefit "${benefit.description}" has no verified value`);
       continue;
     }
-    pushLine(
-      lines,
-      `Benefit retained: ${benefit.description}`,
-      -benefit.valueMinor,
-      benefit.billingPeriod === "monthly" ? horizonMonths : 1,
+    lines.push(
+      recurringLine({
+        id: `proposed:benefit:${benefit.id}:retained`,
+        label: `Benefit retained: ${benefit.description}`,
+        monthlyMinor: -benefit.valueMinor,
+        months: benefit.billingPeriod === "monthly" ? horizonMonths : 1,
+        currency: benefit.currency,
+        sourceEvidenceId: benefit.evidenceId,
+      }),
     );
   }
 
@@ -219,24 +383,46 @@ export function calculateProposedTco(input: TcoInput, offer: Offer): TcoResult {
   } else if (promoMonths === null) {
     missingFields.push("Promotional period length is unknown");
   } else if (promoMonths > 0) {
-    pushLine(
-      lines,
-      `${offer.providerName} promotional price`,
-      terms.promotionalMonthlyPriceMinor,
-      promoMonths,
+    lines.push(
+      recurringLine({
+        id: "proposed:promotional-price",
+        label: `${offer.providerName} promotional price`,
+        monthlyMinor: terms.promotionalMonthlyPriceMinor,
+        months: promoMonths,
+        currency,
+        sourceEvidenceId: offerEvidenceId(offer, "promotionalMonthlyPriceMinor"),
+      }),
     );
   }
 
   const remainingMonths = promoMonths === null ? null : horizonMonths - promoMonths;
-  if (remainingMonths !== null && remainingMonths > 0) {
+  if (remainingMonths !== null && remainingMonths > 0 && promoMonths !== null) {
     if (terms.standardMonthlyPriceMinor === null) {
       missingFields.push("Standard monthly price after the promotion is unknown");
     } else {
-      pushLine(
-        lines,
-        `${offer.providerName} standard price`,
-        terms.standardMonthlyPriceMinor,
-        remainingMonths,
+      const startMonth = promoMonths + 1;
+      const endMonth = horizonMonths;
+      const months = remainingMonths;
+      lines.push(
+        toLine({
+          id: "proposed:standard-price",
+          label: `${offer.providerName} standard price`,
+          monthlyMinor: terms.standardMonthlyPriceMinor,
+          months,
+          frequency: "monthly",
+          quantity: months,
+          currency,
+          startMonth,
+          endMonth,
+          sourceEvidenceId: offerEvidenceId(offer, "standardMonthlyPriceMinor"),
+          explanation: `${formatMoneyMinor(
+            terms.standardMonthlyPriceMinor,
+            currency,
+          )} × ${months} months (month ${startMonth}–${endMonth}) = ${formatMoneyMinor(
+            multiplyMinor(terms.standardMonthlyPriceMinor, months),
+            currency,
+          )}`,
+        }),
       );
     }
   }
@@ -244,33 +430,43 @@ export function calculateProposedTco(input: TcoInput, offer: Offer): TcoResult {
   if (terms.installationFeeMinor === null) {
     missingFields.push("Installation fee is unknown");
   } else if (terms.installationFeeMinor > 0) {
-    lines.push({
-      label: "Installation fee",
-      monthlyMinor: terms.installationFeeMinor,
-      months: 1,
-      subtotalMinor: terms.installationFeeMinor,
-    });
+    lines.push(
+      oneOffLine({
+        id: "proposed:installation-fee",
+        label: "Installation fee",
+        amountMinor: terms.installationFeeMinor,
+        currency,
+        sourceEvidenceId: offerEvidenceId(offer, "installationFeeMinor"),
+      }),
+    );
   }
 
   if (terms.activationFeeMinor === null) {
     missingFields.push("Activation fee is unknown");
   } else if (terms.activationFeeMinor > 0) {
-    lines.push({
-      label: "Activation fee",
-      monthlyMinor: terms.activationFeeMinor,
-      months: 1,
-      subtotalMinor: terms.activationFeeMinor,
-    });
+    lines.push(
+      oneOffLine({
+        id: "proposed:activation-fee",
+        label: "Activation fee",
+        amountMinor: terms.activationFeeMinor,
+        currency,
+        sourceEvidenceId: offerEvidenceId(offer, "activationFeeMinor"),
+      }),
+    );
   }
 
   if (terms.equipmentMonthlyFeeMinor === null) {
     missingFields.push("Equipment rental fee is unknown");
   } else if (terms.equipmentMonthlyFeeMinor > 0) {
-    pushLine(
-      lines,
-      "Equipment rental",
-      terms.equipmentMonthlyFeeMinor,
-      horizonMonths,
+    lines.push(
+      recurringLine({
+        id: "proposed:equipment-rental",
+        label: "Equipment rental",
+        monthlyMinor: terms.equipmentMonthlyFeeMinor,
+        months: horizonMonths,
+        currency,
+        sourceEvidenceId: offerEvidenceId(offer, "equipmentMonthlyFeeMinor"),
+      }),
     );
   }
 
@@ -279,7 +475,14 @@ export function calculateProposedTco(input: TcoInput, offer: Offer): TcoResult {
     ? addMinor(lines.map((line) => line.subtotalMinor))
     : null;
 
-  return { horizonMonths, totalMinor, complete, missingFields, lines };
+  return {
+    horizonMonths,
+    totalMinor,
+    complete,
+    missingFields,
+    lines,
+    calculationVersion: TCO_CALCULATION_VERSION,
+  };
 }
 
 export function compareTotals(
@@ -317,4 +520,11 @@ export function compareTotals(
 export function averageMonthlyCost(tco: TcoResult): number | null {
   if (tco.totalMinor === null) return null;
   return Math.trunc(tco.totalMinor / tco.horizonMonths);
+}
+
+/** Sums the included line items. Used by tests and the breakdown UI. */
+export function sumIncludedLines(tco: TcoResult): number | null {
+  const included = tco.lines.filter((line) => line.includedInTotal);
+  if (!tco.complete) return null;
+  return addMinor(included.map((line) => line.subtotalMinor));
 }

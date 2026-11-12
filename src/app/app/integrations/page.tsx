@@ -22,6 +22,7 @@ import {
   Stat,
 } from "@/components/ui";
 import { ButtonLink } from "@/components/button";
+import { PlatformFlow } from "@/components/platform-flow";
 import { ServProbeButton } from "@/components/serv-probe-button";
 import { getPageContext } from "@/lib/page/context";
 import { getServStatus } from "@/lib/integrations/serv/service";
@@ -246,6 +247,10 @@ export default async function IntegrationsPage() {
             </div>
           ) : null}
         </Panel>
+      </div>
+
+      <div className="mt-6">
+        <PlatformFlow />
       </div>
 
       <div className="mt-6 grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">

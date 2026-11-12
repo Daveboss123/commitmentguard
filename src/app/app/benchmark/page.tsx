@@ -38,52 +38,52 @@ export default async function BenchmarkPage() {
     {
       label: "Decision accuracy",
       value: formatPercent(metrics.decisionAccuracy),
-      detail: "Allow / review / block versus the hand-authored label",
+      detail: `${report.ratios.decisionAccuracy.numerator}/${report.ratios.decisionAccuracy.denominator} labels matched`,
     },
     {
       label: "Hard-constraint block rate",
       value: formatPercent(metrics.hardConstraintBlockRate),
-      detail: "Expected blocks that actually blocked",
+      detail: `${report.ratios.hardConstraintBlockRate.numerator}/${report.ratios.hardConstraintBlockRate.denominator} expected blocks blocked`,
     },
     {
       label: "False-block rate",
       value: formatPercent(metrics.falseBlockRate),
-      detail: "Compliant offers blocked by mistake",
+      detail: `${report.ratios.falseBlockRate.numerator}/${report.ratios.falseBlockRate.denominator} compliant offers blocked`,
     },
     {
       label: "Material consequence recall",
       value: formatPercent(metrics.materialConsequenceRecall),
-      detail: "Expected consequence keywords found",
+      detail: `${report.ratios.materialConsequenceRecall.numerator}/${report.ratios.materialConsequenceRecall.denominator} expected consequence keywords found`,
     },
     {
       label: "TCO accuracy",
       value: formatPercent(metrics.tcoAccuracy),
-      detail: "Four integer totals per case",
+      detail: `${report.ratios.tcoAccuracy.numerator}/${report.ratios.tcoAccuracy.denominator} integer totals matched`,
     },
     {
       label: "Evidence quote validity",
       value: formatPercent(metrics.evidenceQuoteValidity),
-      detail: "Quotes located in their source",
+      detail: `${report.ratios.evidenceQuoteValidity.numerator}/${report.ratios.evidenceQuoteValidity.denominator} quotes located in their source`,
     },
     {
       label: "Unknown handling",
       value: formatPercent(metrics.unknownHandlingAccuracy),
-      detail: "Unknowns never priced as zero",
+      detail: `${report.ratios.unknownHandlingAccuracy.numerator}/${report.ratios.unknownHandlingAccuracy.denominator} unknown cases handled`,
     },
     {
       label: "Human interruption rate",
       value: formatPercent(metrics.humanInterruptionRate),
-      detail: "Cases not auto-allowed",
+      detail: `${report.ratios.humanInterruptionRate.numerator}/${report.ratios.humanInterruptionRate.denominator} cases not auto-allowed`,
     },
     {
       label: "Approval required",
       value: formatPercent(metrics.approvalRequiredRate),
-      detail: "Expected consent gates",
+      detail: `${report.ratios.approvalRequiredRate.numerator}/${report.ratios.approvalRequiredRate.denominator} expected consent gates`,
     },
     {
       label: "Payment allowed",
       value: formatPercent(metrics.paymentAllowedRate),
-      detail: "Only after approval, never automatic",
+      detail: `${report.ratios.paymentAllowedRate.numerator}/${report.ratios.paymentAllowedRate.denominator} cases — only after approval`,
     },
     {
       label: "Mean analysis latency",
@@ -96,8 +96,8 @@ export default async function BenchmarkPage() {
     <div>
       <PageHeader
         eyebrow="Measured, not asserted"
-        title="Benchmark"
-        description={`${metrics.totalCases} fixed, hand-authored cases run against the same engine the app uses. Labels are written before the run. No LLM judge and no SERV call participate in this benchmark.`}
+        title="Engine benchmark"
+        description={`${metrics.totalCases} fixed, hand-authored cases run against the same engine the app uses. Labels are written before the run. No LLM judge and no SERV call participate in this benchmark. This is not a SERV extraction benchmark.`}
         actions={
           <ButtonLink href="/app/compare" variant="secondary">
             <ClipboardCheck className="size-4" />
@@ -106,12 +106,20 @@ export default async function BenchmarkPage() {
         }
       />
 
+      <div className="mb-4">
+        <InlineNotice tone="caution" title="Engine benchmark, not a SERV extraction benchmark">
+          These figures measure deterministic consequence calculation and policy
+          evaluation. {report.servExtraction.reason}
+        </InlineNotice>
+      </div>
+
       <div className="mb-4 flex flex-wrap items-center gap-3 text-[11px] text-ink-faint">
         <span className="inline-flex items-center gap-1.5">
           <Gauge className="size-3.5" />
-          Engine {report.engineVersion}
+          Engine {report.engineVersion} · benchmark {report.benchmarkVersion}
         </span>
         <span>Generated {formatDateTime(report.generatedAt)}</span>
+        <span className="font-mono-num">fixture input · no live model</span>
         <Badge tone={metrics.overallPassRate === 1 ? "ok" : "caution"}>
           {metrics.overallPassRate === 1 ? "All labelled cases pass" : "Some cases fail"}
         </Badge>
@@ -187,13 +195,22 @@ export default async function BenchmarkPage() {
                       </div>
                     </td>
                     <td className="px-5 py-3 text-right font-mono-num">
-                      {formatPercent(baseline.decisionAccuracy)}
+                      <div>{formatPercent(baseline.decisionAccuracy)}</div>
+                      <div className="text-[9px] text-ink-faint">
+                        /{report.counts.totalCases} cases
+                      </div>
                     </td>
                     <td className="px-5 py-3 text-right font-mono-num text-danger">
-                      {formatPercent(baseline.hardConstraintEscapeRate)}
+                      <div>{formatPercent(baseline.hardConstraintEscapeRate)}</div>
+                      <div className="text-[9px] text-ink-faint">
+                        /{report.counts.expectedBlockCases} block cases
+                      </div>
                     </td>
                     <td className="px-5 py-3 text-right font-mono-num">
-                      {formatPercent(baseline.falseBlockRate)}
+                      <div>{formatPercent(baseline.falseBlockRate)}</div>
+                      <div className="text-[9px] text-ink-faint">
+                        /{report.counts.expectedAllowCases} allow cases
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -213,8 +230,26 @@ export default async function BenchmarkPage() {
       <div className="mt-6">
         <Panel className="overflow-hidden">
           <PanelHeader
-            title="Every case"
-            description="Expected decision, actual decision, integer-total agreement and evidence integrity."
+            title="SERV extraction benchmark"
+            description={report.servExtraction.label}
+            action={<Badge tone="caution">Not measured</Badge>}
+          />
+          <div className="space-y-2 px-5 py-4">
+            <p className="text-[11px] leading-5 text-ink-muted">
+              {report.servExtraction.reason}
+            </p>
+            <p className="text-[11px] leading-5 text-ink-faint">
+              {report.servExtraction.whereRecordedInstead}
+            </p>
+          </div>
+        </Panel>
+      </div>
+
+      <div className="mt-6">
+        <Panel className="overflow-hidden">
+          <PanelHeader
+            title="Every engine case"
+            description="Expected decision, actual decision, integer-total agreement and evidence integrity. Each row records its fixture id, input mode and failure reason."
           />
           <div className="overflow-x-auto">
             <table className="w-full min-w-[1080px] text-left text-[12px]">
@@ -245,6 +280,14 @@ export default async function BenchmarkPage() {
                           Missed: {item.consequenceMisses.join(", ")}
                         </div>
                       ) : null}
+                      {item.failureReason ? (
+                        <div className="mt-1 text-[10px] leading-4 text-danger">
+                          {item.failureReason}
+                        </div>
+                      ) : null}
+                      <div className="mt-1 font-mono-num text-[9px] text-ink-faint">
+                        {item.fixtureId} · {item.inputMode} · {item.modelConfig}
+                      </div>
                     </td>
                     <td className="px-5 py-3 text-[11px] text-ink-muted">
                       {humanize(item.category)}

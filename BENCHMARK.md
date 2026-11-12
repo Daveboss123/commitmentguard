@@ -1,13 +1,24 @@
 # Benchmark
 
+> **This is an engine benchmark, not a SERV extraction benchmark.**
+>
+> These figures measure the deterministic consequence and policy engine. SERV
+> extraction quality is **not measured in this build** and no extraction
+> percentage is claimed anywhere. See
+> [SERV extraction — not measured](#serv-extraction--not-measured) below.
+
 CommitmentGuard ships a **30-case hand-authored benchmark** with fixed labels.
 Every number in this document comes from a real run of the shipped runner
 (`src/lib/benchmark/runner.ts`) against the shipped cases
 (`src/lib/benchmark/cases.ts`). Nothing here is estimated or aspirational.
 
+- Report kind: `engine` (there is no `serv` report in this build)
 - Engine under test: deterministic decision engine, `engineVersion 1.0.0`
-- Run date: 2026-11-08 (re-runnable in-app at `/app/benchmark` or via `npm test`)
-- Latest measured pass: **30/30 cases**, all metric values below
+- Benchmark version: `1.0.0`
+- Input mode: fixed fixtures (`inputMode: "fixture"`), no live model
+  (`modelConfig: "none — deterministic engine"`)
+- Reproduce: `/app/benchmark` in the app, or `npm test` (the runner test
+  asserts 30/30)
 
 ---
 
@@ -34,6 +45,10 @@ derives the labels from the engine it is testing — it only checks the engine's
 output against them. **No LLM is involved anywhere**: the runner does not call
 SERV, and it does not use an LLM to judge outputs.
 
+Every case result also records its provenance explicitly: `fixtureId`,
+`inputMode`, `modelConfig`, `generatedAt` and, when it fails, a
+human-readable `failureReason`.
+
 **A case passes only if all of these hold:**
 
 1. Actual decision equals the expected decision.
@@ -57,44 +72,49 @@ SERV, and it does not use an LLM to judge outputs.
 
 ## Measured results
 
-```json
-{
-  "engineVersion": "1.0.0",
-  "metrics": {
-    "totalCases": 30,
-    "passedCases": 30,
-    "overallPassRate": 1,
-    "decisionAccuracy": 1,
-    "hardConstraintBlockRate": 1,
-    "falseBlockRate": 0,
-    "materialConsequenceRecall": 1,
-    "tcoAccuracy": 1,
-    "evidenceQuoteValidity": 0.9934,
-    "unknownHandlingAccuracy": 1,
-    "humanInterruptionRate": 0.6,
-    "meanAnalysisLatencyMs": 1.283,
-    "approvalRequiredRate": 0.4,
-    "paymentAllowedRate": 0.4
-  }
-}
-```
+Every published percentage is shown with its numerator and denominator. Small
+denominators are shown, not hidden.
 
-Reading of each metric:
+| Metric | Result | Numerator / denominator | What it means |
+| --- | --- | --- | --- |
+| Overall pass rate | **1** | 30 / 30 | decision, reasons, totals, consequences and injection detection all correct in every case |
+| Decision accuracy | **1** | 30 / 30 | allow / review / block correct in every case |
+| Hard-constraint block rate | **1** | 11 / 11 | every case whose policy makes the offer a hard constraint failure was **blocked**, never talked down to review |
+| False-block rate | **0** | 0 / 12 | no compliant offer was blocked |
+| Material consequence recall | **1** | 39 / 39 | every labelled consequence keyword surfaced in the produced consequences |
+| TCO accuracy | **1** | 120 / 120 | 30 cases × 4 integer totals, all exactly correct |
+| Evidence quote validity | **0.9934** | 599 / 603 | four quotes in the evidence-integrity cases are **deliberately corrupted**; locating them is impossible and flagging them is the correct behaviour — the engine flags all four and every case passes |
+| Unknown-handling accuracy | **1** | 6 / 6 | every unknown-critical-terms or invalid-evidence case surfaced the unknown and was **never allowed** |
+| Human interruption rate | **0.6** | 18 / 30 | review + block cases — the engine inserts a human at these decision points instead of auto-pacting |
+| Approval-required rate | **0.4** | 12 / 30 | cases where the consent gate would be exercised before anything can move |
+| Payment-allowed rate | **0.4** | 12 / 30 | cases where a capped payment session could legitimately be requested |
+| Mean analysis latency | **engine-only** | 30 runs, no network | observed between roughly 1 and 4 ms depending on machine and run; this is one full decision + consequence + totals recomputation, not an end-to-end request |
 
-| Metric | Value | What it means |
-| --- | --- | --- |
-| Overall pass rate | **1** (30/30) | decision, reasons, totals, consequences and injection detection all correct in every case |
-| Decision accuracy | **1** | allow / review / block correct in 30/30 |
-| Hard-constraint block rate | **1** | every case whose policy makes the offer a hard constraint failure was **blocked**, never talked down to review |
-| False-block rate | **0** | no compliant offer was blocked |
-| Material consequence recall | **1** | every labelled consequence keyword surfaced in the produced consequences |
-| TCO accuracy | **1** | all 120 integer total checks (30 cases × 4 totals) exactly correct |
-| Evidence quote validity | **0.9934** (599/603) | four quotes in the evidence-integrity cases are **deliberately corrupted**; locating them is impossible and flagging them is the correct behaviour — the engine flags all four and every case passes |
-| Unknown-handling accuracy | **1** | every unknown-critical-terms or invalid-evidence case surfaced the unknown and was **never allowed** |
-| Human interruption rate | **0.6** (18/30) | 30% review + 30% block — the engine inserts a human at these decision points instead of auto-pacting |
-| Approval-required rate | **0.4** (12/30) | fraction of cases where the consent gate would be exercised before anything can move |
-| Payment-allowed rate | **0.4** (12/30) | fraction of cases where a capped payment session could legitimately be requested |
-| Mean analysis latency | **~1.3 ms** | measured across runs between 1.28–1.72 ms; engine-only, no SERV, no network — one full decision + consequence + totals recomputation |
+The counts behind the ratios are also exposed by the runner
+(`report.counts`): 11 expected-block cases, 12 expected-allow cases, 39
+consequence keywords, 120 TCO fields, 603 evidence items, 6 unknown cases and
+18 cases that were not auto-allowed.
+
+---
+
+## SERV extraction — not measured
+
+An extraction benchmark needs repeated live SERV calls over a labelled document
+set, with scored fields and quotes. **This build does not ship one, so no
+extraction accuracy, freshness or latency percentage is claimed.**
+
+What is recorded instead, per analysis:
+
+- the extraction source (`serv` or the clearly labelled `demo_fixture` /
+  `demo_parser` path),
+- the model and, when SERV reported them, latency and response id,
+- the quote-validation result for that analysis (how many quotes were located
+  in the recorded source),
+- explicit unknowns where a material field could not be extracted.
+
+Fixture offers are labelled `demo_fixture` and are never presented as live SERV
+output. If SERV is configured but unavailable, extraction fails closed with a
+typed error rather than falling back silently.
 
 ---
 
@@ -106,8 +126,8 @@ runner**, not claims about any real product.
 
 | Control agent | Behaviour modelled | Decision accuracy | Hard-constraint escape | False blocks | Consequence recall | TCO accuracy |
 | --- | --- | --- | --- | --- | --- | --- |
-| Baseline A — ordinary LLM agent | recommends when the advertised promo price undercuts the service it replaces; no ledger, dependencies, evidence, fees or contract rules | **0.4** | **1.0** (allowed every expected-block case) | 0 | 0 | 0 |
-| Baseline B — permission / spend control | allows when the advertised monthly price is within current spend; no total-cost, benefit or evidence model | **0.4** | **1.0** | 0 | 0 | 0 |
+| Baseline A — ordinary LLM agent | recommends when the advertised promo price undercuts the service it replaces; no ledger, dependencies, evidence, fees or contract rules | **0.4** (12/30) | **1.0** (11/11) | 0 | 0 | 0 |
+| Baseline B — permission / spend control | allows when the advertised monthly price is within current spend; no total-cost, benefit or evidence model | **0.4** (12/30) | **1.0** (11/11) | 0 | 0 | 0 |
 
 Concretely: both baselines **wave every adversarial offer through** — the
 24-month auto-renewal contract, the lost family bundle, the hidden equipment
@@ -121,9 +141,9 @@ same cases CommitmentGuard blocks.
 1. **30 cases is a small suite.** It verifies the specified behaviours; it does
    not prove statistical robustness outside them. The labels cover the
    consequence categories the blueprint targets, nothing more.
-2. **The LLM extraction path is not benchmarked.** These cases feed hand-built
-   inputs straight into the deterministic engine. SERV extraction quality is
-   exercised in the live demo, not scored here.
+2. **SERV extraction is not benchmarked.** These cases feed hand-built inputs
+   straight into the deterministic engine. Extraction quality is exercised in
+   the live demo, not scored here — and no percentage is published for it.
 3. **Latency is engine-only.** Real end-to-end request latency includes SERV
    round-trips and is network-dependent; it is not a comparable figure.
 4. **No LLM judge.** Label matching is exact strings and integer arithmetic —
@@ -140,6 +160,7 @@ same cases CommitmentGuard blocks.
 npm test                     # includes runner.test.ts: asserts 30/30
 ```
 
-or open `/app/benchmark` in the running app (signed in) and press **Run
-benchmark** — the same `runBenchmark()` executes in-page, with the full
-per-case table (expected vs actual decision, reasons, totals, consequences).
+or open `/app/benchmark` in the running app (signed in) — the same
+`runBenchmark()` executes per request, with the full per-case table (expected
+vs actual decision, reasons, totals, consequences, fixture provenance and
+failure reason) and the explicit "SERV extraction — not measured" panel.

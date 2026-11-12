@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { IntentContract } from "@/lib/domain/types";
 import { mutateDatabase, getDatabase, resetDatabase } from "@/lib/store/database";
-import { createAnalysis } from "@/lib/services/analysis.service";
+import { createAnalysis, runAnalysisScenario } from "@/lib/services/analysis.service";
 import { createApproval, assertApprovalBasis } from "@/lib/services/approval.service";
 import {
   executeApprovedPayment,
@@ -335,6 +335,53 @@ describe("kite payment execution", () => {
     ).rejects.toMatchObject({ code: "APPROVAL_REQUIRED" });
 
     expect(created.analysis.decision).toBe("allow");
+  });
+});
+
+describe("scenario sandbox", () => {
+  it("re-runs the engine without persisting anything", async () => {
+    const created = await analyse("offer_brightwave_a");
+    expect(created.analysis.decision).toBe("block");
+    const before = await getDatabase();
+    const analysisCount = before.analyses.length;
+    const receiptCount = before.receipts.length;
+
+    const evaluation = await runAnalysisScenario(created.analysis.id, {
+      maxContractMonths: 24,
+      retainFamilyDiscount: true,
+    });
+
+    expect(evaluation.notPersisted).toBe(true);
+    expect(evaluation.base.decision).toBe("block");
+    expect(evaluation.appliedOverrides.map((item) => item.field)).toEqual([
+      "maxContractMonths",
+      "familyBundleDiscountRetained",
+    ]);
+    // Relaxing the term limit removes that blocker...
+    expect(evaluation.base.reasonCodes).toContain("MAX_CONTRACT_MONTHS");
+    expect(evaluation.scenario.reasonCodes).not.toContain("MAX_CONTRACT_MONTHS");
+    // ...but an explicit document exclusion wins over a hypothetical retention
+    // flag, and the minimum-saving target still governs.
+    expect(evaluation.retentionLockedByExclusion).toBe(true);
+    expect(evaluation.scenario.reasonCodes).toContain("BENEFIT_NOT_RETAINED");
+    expect(evaluation.scenario.decision).toBe("block");
+
+    const after = await getDatabase();
+    expect(after.analyses.length).toBe(analysisCount);
+    expect(after.receipts.length).toBe(receiptCount);
+  });
+
+  it("can turn an allowed offer into a blocked one by tightening a limit", async () => {
+    const created = await analyse("offer_harborlink_b");
+    expect(created.analysis.decision).toBe("allow");
+
+    const evaluation = await runAnalysisScenario(created.analysis.id, {
+      minimumMonthlySavingMinor: 1_500,
+    });
+
+    expect(evaluation.scenario.decision).toBe("block");
+    expect(evaluation.scenario.reasonCodes).toContain("MINIMUM_SAVING_NOT_MET");
+    expect(evaluation.base.decision).toBe("allow");
   });
 });
 

@@ -47,8 +47,9 @@
   --font-display: var(--font-newsreader);
   --font-mono: var(--font-ibm-mono);
 
-  --radius-panel: 0.9rem;
-  --shadow-panel: 0 1px 0 rgb(25 33 30 / 0.04), 0 14px 36px -28px rgb(25 33 30 / 0.35);
+  --radius-panel: 0.625rem;
+  --radius-control: 0.5rem;
+  --shadow-panel: 0 1px 0 rgb(25 33 30 / 0.04), 0 10px 28px -24px rgb(25 33 30 / 0.35);
 }
 
 * {
@@ -103,9 +104,23 @@ textarea {
 
 .paper-grid {
   background-image:
-    linear-gradient(to right, rgb(25 33 30 / 0.035) 1px, transparent 1px),
-    linear-gradient(to bottom, rgb(25 33 30 / 0.035) 1px, transparent 1px);
-  background-size: 48px 48px;
+    linear-gradient(to bottom, rgb(25 33 30 / 0.028) 1px, transparent 1px);
+  background-size: 100% 28px;
+}
+
+/* Ink-stamp frame: outer rule from the border, then a paper gap, then a thin
+   inner rule — the way a rubber stamp leaves a double ring. */
+.stamp {
+  box-shadow:
+    inset 0 0 0 2.5px var(--paper),
+    inset 0 0 0 3.25px currentColor;
+  background: transparent;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .stamp {
+    /* no motion involved; kept for completeness */
+  }
 }
 
 .hairline {

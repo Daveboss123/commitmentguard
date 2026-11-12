@@ -5,7 +5,6 @@ import {
   ArrowRight,
   CheckCircle2,
   CircleAlert,
-  FileText,
   GitCompareArrows,
   Info,
   LockKeyhole,
@@ -28,6 +27,12 @@ import {
   Stat,
 } from "@/components/ui";
 import { ButtonLink } from "@/components/button";
+import { CostBreakdown } from "@/components/cost-breakdown";
+import { EvidenceExplorer } from "@/components/evidence-explorer";
+import { ReasoningTracePanel } from "@/components/reasoning-trace";
+import { ScenarioSandbox } from "@/components/scenario-sandbox";
+import { buildReasoningTrace } from "@/lib/domain/trace";
+import { toScenarioOutcome } from "@/lib/services/analysis.service";
 import {
   ExplainAnalysisButton,
   RecalculateAnalysisButton,
@@ -36,7 +41,7 @@ import { getPageContext } from "@/lib/page/context";
 import { getHouseholdData } from "@/lib/page/data";
 import { getAnalysisBundle } from "@/lib/services/analysis.service";
 import { validateEvidence } from "@/lib/domain/evidence";
-import type { Consequence, EvidenceStatus } from "@/lib/domain/types";
+import type { Consequence } from "@/lib/domain/types";
 import { serverNow } from "@/lib/app/clock";
 import {
   formatDate,
@@ -48,18 +53,6 @@ import {
 
 export const metadata: Metadata = {
   title: "Consequence analysis",
-};
-
-const statusTone: Record<
-  EvidenceStatus,
-  "ok" | "info" | "caution" | "danger" | "neutral"
-> = {
-  verified: "ok",
-  user_provided: "info",
-  inferred: "neutral",
-  unknown: "caution",
-  contradicted: "danger",
-  stale: "caution",
 };
 
 function consequenceList(
@@ -173,6 +166,16 @@ export default async function AnalysisDetailPage({
   const consentHref = approvalIsCurrent
     ? `/app/approvals/${latestApproval.id}`
     : `/app/analyses/${analysis.id}/consent`;
+  const reasoningTrace = buildReasoningTrace({
+    analysis,
+    intent,
+    offer,
+    commitmentsCount: data.commitments.filter((item) => item.status === "active")
+      .length,
+    benefitsCount: data.benefits.length,
+    dependenciesCount: data.dependencies.length,
+    documentsCount: data.documents.length,
+  });
   const decisionTone =
     analysis.decision === "allow"
       ? "border-ok/30 bg-ok-soft"
@@ -368,6 +371,29 @@ export default async function AnalysisDetailPage({
             </div>
           </Panel>
 
+          <div className="grid gap-6 md:grid-cols-2">
+            <CostBreakdown
+              title="Current, 12 months"
+              description="Baseline line items."
+              tco={analysis.totals.current12}
+            />
+            <CostBreakdown
+              title="Proposed, 12 months"
+              description="Offer line items."
+              tco={analysis.totals.proposed12}
+            />
+            <CostBreakdown
+              title="Current, 24 months"
+              description="Baseline line items."
+              tco={analysis.totals.current24}
+            />
+            <CostBreakdown
+              title="Proposed, 24 months"
+              description="Offer line items including promotion expiry and fees."
+              tco={analysis.totals.proposed24}
+            />
+          </div>
+
           <Panel>
             <PanelHeader
               title="Contractual delta"
@@ -487,58 +513,12 @@ export default async function AnalysisDetailPage({
             </div>
           </Panel>
 
-          <Panel id="evidence" className="overflow-hidden scroll-mt-6">
-            <PanelHeader
-              title="Evidence drawer"
-              description={`${analysis.evidenceValidation.valid}/${analysis.evidenceValidation.total} quotes validate against their source.`}
-              action={
-                analysis.evidenceValidation.invalidEvidenceIds.length > 0 ? (
-                  <Badge tone="danger">
-                    {analysis.evidenceValidation.invalidEvidenceIds.length} invalid
-                  </Badge>
-                ) : (
-                  <Badge tone="ok">
-                    <ShieldCheck className="size-3" />
-                    Validated
-                  </Badge>
-                )
-              }
-            />
-            <div className="max-h-[520px] overflow-y-auto">
-              <ul className="divide-y divide-line">
-                {evidence.map((item) => {
-                  const check = validation.byId[item.id];
-                  return (
-                    <li key={item.id} className="px-5 py-3">
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="font-mono-num text-[10px] text-ink-faint">
-                          {humanize(item.normalizedField ?? "fact")}
-                        </span>
-                        <Badge tone={statusTone[check?.status ?? item.status]}>
-                          {humanize(check?.status ?? item.status)}
-                        </Badge>
-                      </div>
-                      <blockquote className="mt-1.5 border-l-2 border-line pl-2.5 text-[11px] leading-5 text-ink-muted">
-                        “{item.quote}”
-                      </blockquote>
-                      <div className="mt-1.5 flex flex-wrap items-center justify-between gap-2 text-[10px] text-ink-faint">
-                        <span className="inline-flex items-center gap-1">
-                          <FileText className="size-3" />
-                          {item.sourceLabel}
-                        </span>
-                        <span className="font-mono-num">
-                          {item.sourceVersionHash.slice(0, 14)}…
-                        </span>
-                      </div>
-                      {check?.reason ? (
-                        <div className="mt-1 text-[10px] text-danger">{check.reason}</div>
-                      ) : null}
-                    </li>
-                  );
-                })}
-              </ul>
-            </div>
-          </Panel>
+          <EvidenceExplorer
+            evidence={evidence}
+            sourceTexts={sourceTexts}
+            validation={validation}
+            now={serverNow()}
+          />
 
           {analysis.unknowns.length > 0 ? (
             <Panel className="overflow-hidden">
@@ -692,6 +672,28 @@ export default async function AnalysisDetailPage({
             </div>
           </Panel>
         </div>
+      </div>
+
+      <div className="mt-6">
+        <ScenarioSandbox
+          analysisId={analysis.id}
+          currency={intent?.currency ?? "USD"}
+          defaults={{
+            maxContractMonths: intent?.maxContractMonths ?? null,
+            minimumMonthlySavingMinor: intent?.minimumMonthlySavingMinor ?? null,
+            maxOneTimeFeeMinor: bundle.policy?.maxOneTimeFeeMinor ?? null,
+            familyDiscountRetained:
+              offer.terms.familyBundleDiscountRetained ?? null,
+          }}
+          base={toScenarioOutcome(analysis)}
+          familyDiscountExcluded={offer.terms.excludedBenefits.some(
+            (item) => item.key === "family_mobile_bundle_discount",
+          )}
+        />
+      </div>
+
+      <div className="mt-6">
+        <ReasoningTracePanel trace={reasoningTrace} />
       </div>
 
       <div className="mt-6">

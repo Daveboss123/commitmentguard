@@ -405,6 +405,8 @@ export function buildAnalysis(input: AnalysisInput): Analysis {
     offerId: offer.id,
     offerVersion: offer.offerVersion,
     offerTerms: offer.terms,
+    /** The cost model is part of the approved basis, not an implementation detail. */
+    calculationVersion: totals.current12.calculationVersion,
     commitmentVersions: commitments.map((commitment) => ({
       id: commitment.id,
       version: commitment.version,

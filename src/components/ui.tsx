@@ -59,16 +59,40 @@ export function DecisionBadge({
     decision === "allow" ? "ok" : decision === "review" ? "caution" : "danger";
   const label =
     decision === "allow" ? "Allow" : decision === "review" ? "Review" : "Block";
+  if (size === "large") {
+    // The signature mark: a verdict rendered like an ink stamp on a document —
+    // squared, double-ruled, a touch off axis. Semantics, not decoration.
+    const stampTone: Record<Tone, string> = {
+      neutral: "border-ink-muted text-ink-muted",
+      accent: "border-accent text-accent-strong",
+      ok: "border-ok text-ok",
+      caution: "border-caution text-caution",
+      danger: "border-danger text-danger",
+      info: "border-info text-info",
+    };
+    return (
+      <span
+        className={clsx(
+          "stamp relative inline-flex -rotate-[1.5deg] items-center rounded-[3px] px-3 py-1.5",
+          "text-[13px] font-semibold uppercase leading-none tracking-[0.16em]",
+          "border-[1.5px]",
+          stampTone[tone],
+        )}
+      >
+        {label}
+      </span>
+    );
+  }
   return (
-    <Badge
-      tone={tone}
+    <span
       className={clsx(
-        size === "large" && "px-3 py-1 text-[12px] uppercase tracking-[0.08em]",
+        "inline-flex items-center gap-1.5 rounded-[4px] border px-2 py-0.5 text-[11px] font-medium leading-5",
+        toneClasses[tone],
       )}
     >
       <Dot tone={tone} />
       {label}
-    </Badge>
+    </span>
   );
 }
 
@@ -130,7 +154,9 @@ export function PanelHeader({
       )}
     >
       <div className="min-w-0">
-        <h2 className="font-display text-[19px] leading-tight text-ink">{title}</h2>
+        <h2 className="text-[15px] font-medium leading-snug tracking-[-0.01em] text-ink">
+          {title}
+        </h2>
         {description ? (
           <p className="mt-1 max-w-[62ch] text-[13px] leading-5 text-ink-muted">
             {description}
@@ -237,7 +263,7 @@ export function PageHeader({
     <header className="mb-7 flex flex-wrap items-end justify-between gap-5 border-b border-line pb-6">
       <div className="min-w-0">
         {eyebrow ? (
-          <div className="mb-2 text-[12px] font-medium text-accent">{eyebrow}</div>
+          <div className="mb-2 text-[12px] text-ink-muted">{eyebrow}</div>
         ) : null}
         <h1 className="font-display text-[34px] leading-[1.08] tracking-[-0.02em] text-ink sm:text-[40px]">
           {title}
@@ -269,7 +295,7 @@ export function Stat({
       <div className="text-[12px] leading-4 text-ink-muted">{label}</div>
       <div
         className={clsx(
-          "mt-2 font-display text-[26px] leading-none tracking-[-0.02em]",
+          "mt-2 font-mono-num tabular text-[24px] leading-none tracking-[-0.01em]",
           tone === "accent" && "text-accent-strong",
           tone === "caution" && "text-caution",
           tone === "danger" && "text-danger",

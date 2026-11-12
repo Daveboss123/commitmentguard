@@ -1,7 +1,6 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import {
-  ArrowRight,
   Check,
   FileCheck2,
   GitCompareArrows,
@@ -10,7 +9,8 @@ import {
   ShieldCheck,
 } from "lucide-react";
 import { BrandMark } from "@/components/brand-mark";
-import { Badge, DecisionBadge, InlineNotice, Money, Panel } from "@/components/ui";
+import { Badge, DecisionBadge, InlineNotice, Money, MoneyDelta, Panel } from "@/components/ui";
+import { CostBreakdown } from "@/components/cost-breakdown";
 import { buttonClass } from "@/components/button";
 import { brand } from "@/lib/brand";
 import { formatMoneyMinor } from "@/lib/domain/money";
@@ -54,6 +54,12 @@ export default function LandingPage() {
   const current24 = decisionRecord.totals.current24.totalMinor;
   const proposed24 = decisionRecord.totals.proposed24.totalMinor;
   const delta24 = decisionRecord.totals.delta24Minor;
+  const delta24AbsLabel = formatMoneyMinor(
+    delta24 === null ? null : Math.abs(delta24),
+    "USD",
+    "en-US",
+    { maximumFractionDigits: 0 },
+  );
   const topReasons = decisionRecord.decisionReasons.slice(0, 3);
   const materialConsequences = decisionRecord.consequences
     .filter((item) => item.direction !== "neutral")
@@ -78,7 +84,6 @@ export default function LandingPage() {
           </nav>
           <Link href="/login" className={buttonClass("primary")}>
             Open the demo
-            <ArrowRight className="size-4" />
           </Link>
         </div>
       </header>
@@ -103,7 +108,6 @@ export default function LandingPage() {
               <div className="mt-8 flex flex-wrap items-center gap-3">
                 <Link href="/login" className={buttonClass("primary")}>
                   Open the demo workspace
-                  <ArrowRight className="size-4" />
                 </Link>
                 <a href="#decision-record" className={buttonClass("secondary")}>
                   See a live decision record
@@ -163,10 +167,10 @@ export default function LandingPage() {
                   <div className="px-5 py-4">
                     <div className="text-[11px] text-ink-faint">Cost change</div>
                     <div className="mt-1.5 font-display text-[27px] leading-none text-danger">
-                      {delta24 === null ? "Unknown" : formatMoneyMinor(delta24)}
+                      <MoneyDelta minor={delta24} />
                     </div>
                     <div className="mt-1.5 text-[11px] text-ink-faint">
-                      Before lost benefits and fees
+                      Full 24-month delta, including fees and the lost discount
                     </div>
                   </div>
                 </div>
@@ -300,14 +304,17 @@ export default function LandingPage() {
             <div>
               <div className="text-[12px] font-medium text-accent">The consequence gap</div>
               <h2 className="mt-3 font-display text-[34px] leading-[1.05] tracking-[-0.02em] text-ink sm:text-[40px]">
-                $30 a month can cost $930 more.
+                $30 a month can cost {delta24AbsLabel} more over 24 months.
               </h2>
               <p className="mt-4 max-w-[58ch] text-[14px] leading-6 text-ink-muted">
-                Offer A advertises $30.00 for six months. The standard price then
-                rises to $55.00, the household pays a $70.00 installation fee and
-                $5.00 a month for equipment, and the 24-month term conflicts with
-                the household&apos;s 12-month limit. Switching also drops a $20.00
-                monthly family discount.
+                Offer A advertises $30.00 for six months, then $55.00 a month.
+                Add the $70.00 installation fee, $5.00 a month for equipment, the
+                $60.00 mobile bill the household still pays, and the $20.00 monthly
+                family discount the switch destroys. Over 24 months that is{" "}
+                <Money minor={proposed24} /> against <Money minor={current24} /> today
+                — a{" "}
+                <MoneyDelta minor={delta24} /> increase. The 24-month term also
+                conflicts with the household&apos;s 12-month limit.
               </p>
 
               <div className="mt-7 overflow-hidden rounded-xl border border-line bg-raised">
@@ -317,6 +324,7 @@ export default function LandingPage() {
                       <th className="px-4 py-2.5 font-medium">Cost over the term</th>
                       <th className="px-4 py-2.5 text-right font-medium">Current</th>
                       <th className="px-4 py-2.5 text-right font-medium">Offer A</th>
+                      <th className="px-4 py-2.5 text-right font-medium">Difference</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-line">
@@ -328,6 +336,9 @@ export default function LandingPage() {
                       <td className="px-4 py-3 text-right">
                         <Money minor={decisionRecord.totals.proposed12.totalMinor} />
                       </td>
+                      <td className="px-4 py-3 text-right">
+                        <MoneyDelta minor={decisionRecord.totals.delta12Minor} />
+                      </td>
                     </tr>
                     <tr>
                       <td className="px-4 py-3 text-ink-muted">24 months</td>
@@ -337,6 +348,9 @@ export default function LandingPage() {
                       <td className="px-4 py-3 text-right">
                         <Money minor={proposed24} />
                       </td>
+                      <td className="px-4 py-3 text-right">
+                        <MoneyDelta minor={delta24} />
+                      </td>
                     </tr>
                     <tr>
                       <td className="px-4 py-3 text-ink-muted">Minimum term</td>
@@ -344,14 +358,33 @@ export default function LandingPage() {
                       <td className="px-4 py-3 text-right font-mono-num text-danger">
                         24 months
                       </td>
+                      <td className="px-4 py-3 text-right font-mono-num text-danger">
+                        +24 months
+                      </td>
                     </tr>
                     <tr>
                       <td className="px-4 py-3 text-ink-muted">Family discount</td>
                       <td className="px-4 py-3 text-right font-mono-num">Retained</td>
                       <td className="px-4 py-3 text-right font-mono-num text-danger">Lost</td>
+                      <td className="px-4 py-3 text-right font-mono-num text-danger">
+                        −$20.00/mo
+                      </td>
                     </tr>
                   </tbody>
                 </table>
+              </div>
+
+              <div className="mt-3 space-y-3">
+                <CostBreakdown
+                  title="Current household — 24-month line items"
+                  description="Every included cost and retained benefit, in integer minor units."
+                  tco={decisionRecord.totals.current24}
+                />
+                <CostBreakdown
+                  title="Offer A — 24-month line items"
+                  description="The advertised price is only one row. Fees, the unchanged mobile bill and the lost discount are the rest."
+                  tco={decisionRecord.totals.proposed24}
+                />
               </div>
 
               <div className="mt-4 flex flex-wrap gap-2">
@@ -473,22 +506,44 @@ export default function LandingPage() {
               </div>
               <Link href="/login" className={buttonClass("secondary")}>
                 Open the full benchmark
-                <ArrowRight className="size-4" />
               </Link>
             </div>
 
             <div className="mt-8 grid gap-px overflow-hidden rounded-xl border border-line bg-line sm:grid-cols-2 lg:grid-cols-5">
               {[
-                ["Cases passed", `${benchmark.metrics.passedCases}/${benchmark.metrics.totalCases}`],
-                ["Decision accuracy", formatPercent(benchmark.metrics.decisionAccuracy)],
-                ["Hard-constraint block rate", formatPercent(benchmark.metrics.hardConstraintBlockRate)],
-                ["Material consequence recall", formatPercent(benchmark.metrics.materialConsequenceRecall)],
-                ["False-block rate", formatPercent(benchmark.metrics.falseBlockRate)],
-              ].map(([label, value]) => (
-                <div key={label} className="bg-raised px-5 py-5">
-                  <div className="text-[11px] leading-4 text-ink-faint">{label}</div>
-                  <div className="mt-2 font-display text-[26px] leading-none text-ink">
-                    {value}
+                {
+                  label: "Cases passed",
+                  value: `${benchmark.metrics.passedCases}/${benchmark.metrics.totalCases}`,
+                  detail: "fixed hand-authored labels",
+                },
+                {
+                  label: "Decision accuracy",
+                  value: formatPercent(benchmark.metrics.decisionAccuracy),
+                  detail: `${benchmark.ratios.decisionAccuracy.numerator}/${benchmark.ratios.decisionAccuracy.denominator} cases`,
+                },
+                {
+                  label: "Hard-constraint block rate",
+                  value: formatPercent(benchmark.metrics.hardConstraintBlockRate),
+                  detail: `${benchmark.ratios.hardConstraintBlockRate.numerator}/${benchmark.ratios.hardConstraintBlockRate.denominator} block cases`,
+                },
+                {
+                  label: "Material consequence recall",
+                  value: formatPercent(benchmark.metrics.materialConsequenceRecall),
+                  detail: `${benchmark.ratios.materialConsequenceRecall.numerator}/${benchmark.ratios.materialConsequenceRecall.denominator} keywords`,
+                },
+                {
+                  label: "False-block rate",
+                  value: formatPercent(benchmark.metrics.falseBlockRate),
+                  detail: `${benchmark.ratios.falseBlockRate.numerator}/${benchmark.ratios.falseBlockRate.denominator} allow cases`,
+                },
+              ].map((metric) => (
+                <div key={metric.label} className="bg-raised px-5 py-5">
+                  <div className="text-[11px] leading-4 text-ink-faint">{metric.label}</div>
+                  <div className="mt-2 font-mono-num tabular text-[24px] leading-none text-ink">
+                    {metric.value}
+                  </div>
+                  <div className="mt-1.5 font-mono-num text-[9px] text-ink-faint">
+                    {metric.detail}
                   </div>
                 </div>
               ))}
@@ -576,7 +631,6 @@ export default function LandingPage() {
               )}
             >
               Enter the demo workspace
-              <ArrowRight className="size-4" />
             </Link>
           </div>
         </section>

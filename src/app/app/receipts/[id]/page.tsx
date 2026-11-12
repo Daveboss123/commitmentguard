@@ -65,6 +65,86 @@ export default async function ReceiptDetailPage({
   const chainOk =
     verification.chainValid === null || verification.chainValid === true;
 
+  const formatOk =
+    payload.kind === "commitmentguard.decision_receipt" &&
+    payload.schemaVersion === 1 &&
+    typeof payload.analysisId === "string" &&
+    typeof payload.stage === "string" &&
+    typeof payload.analysisHash === "string";
+  const linkedAnalysisOk = Boolean(
+    analysis &&
+      payload.analysisId === analysis.id &&
+      payload.analysisHash === analysis.inputHash,
+  );
+  const analysisReceiptExists = database.receipts.some(
+    (item) =>
+      item.analysisId === receipt.analysisId &&
+      item.receiptPayload.stage === "analysis",
+  );
+
+  const verifierChecks: Array<{
+    label: string;
+    detail: string;
+    state: "pass" | "fail" | "not_checked" | "genesis";
+  }> = [
+    {
+      label: "Canonical payload format",
+      detail: formatOk
+        ? "kind, schema version, stage, analysis id and analysis hash are present."
+        : "One or more required fields are missing or the wrong type.",
+      state: formatOk ? "pass" : "fail",
+    },
+    {
+      label: "Payload hash",
+      detail: verification.valid
+        ? "The recomputed hash equals the stored content hash."
+        : "The recomputed hash does not match the stored hash.",
+      state: verification.valid ? "pass" : "fail",
+    },
+    {
+      label: "Chain link",
+      detail:
+        verification.chainValid === null
+          ? "Genesis receipt: no previous hash is expected."
+          : verification.chainValid
+            ? "The previous hash exists and matches the prior receipt."
+            : "The previous hash does not identify an existing receipt.",
+      state:
+        verification.chainValid === null
+          ? "genesis"
+          : verification.chainValid
+            ? "pass"
+            : "fail",
+    },
+    {
+      label: "Linked analysis",
+      detail: linkedAnalysisOk
+        ? "The receipt's analysis id and analysis hash match the stored analysis."
+        : "The receipt does not point at a stored analysis with the same hash.",
+      state: linkedAnalysisOk ? "pass" : "fail",
+    },
+    {
+      label: "Stage order",
+      detail:
+        stage === "analysis"
+          ? "This is the analysis-stage receipt."
+          : analysisReceiptExists
+            ? "An analysis-stage receipt exists earlier in the chain."
+            : "No analysis-stage receipt was found for this chain.",
+      state: stage === "analysis" || analysisReceiptExists ? "pass" : "fail",
+    },
+    {
+      label: "Cryptographic signature",
+      detail: "No signing key is integrated. A hash is integrity, not authorship.",
+      state: "not_checked",
+    },
+    {
+      label: "Provider activation and settlement",
+      detail: "Not proven by any receipt field; simulated execution is labelled.",
+      state: "not_checked",
+    },
+  ];
+
   return (
     <div>
       <div className="mb-4 flex flex-wrap items-center gap-4 text-[12px] text-ink-muted">
@@ -264,6 +344,55 @@ export default async function ReceiptDetailPage({
             <div className="px-5 py-5">
               <VerifyReceiptButton receiptId={receipt.id} />
             </div>
+          </Panel>
+
+          <Panel className="overflow-hidden">
+            <PanelHeader
+              title="Verifier checks"
+              description="What this page actually checked, and what it deliberately did not."
+              action={
+                <Badge
+                  tone={
+                    verifierChecks.some((check) => check.state === "fail")
+                      ? "danger"
+                      : "ok"
+                  }
+                >
+                  {verifierChecks.filter((check) => check.state === "pass").length}{" "}
+                  passed
+                </Badge>
+              }
+            />
+            <ul className="divide-y divide-line">
+              {verifierChecks.map((check) => (
+                <li key={check.label} className="flex gap-2.5 px-5 py-2.5">
+                  <span className="mt-0.5 shrink-0">
+                    {check.state === "pass" ? (
+                      <CheckCircle2 className="size-3.5 text-ok" />
+                    ) : check.state === "fail" ? (
+                      <CircleAlert className="size-3.5 text-danger" />
+                    ) : (
+                      <CircleAlert className="size-3.5 text-ink-faint" />
+                    )}
+                  </span>
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-[11px] font-medium text-ink">
+                        {check.label}
+                      </span>
+                      {check.state === "not_checked" ? (
+                        <Badge tone="neutral">Not checked</Badge>
+                      ) : check.state === "genesis" ? (
+                        <Badge tone="neutral">Genesis</Badge>
+                      ) : null}
+                    </div>
+                    <p className="mt-0.5 text-[10px] leading-4 text-ink-muted">
+                      {check.detail}
+                    </p>
+                  </div>
+                </li>
+              ))}
+            </ul>
           </Panel>
 
           {analysis ? (

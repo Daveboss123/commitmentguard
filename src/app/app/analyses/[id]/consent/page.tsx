@@ -21,7 +21,8 @@ import {
 import { ConsentForm } from "@/components/consent-form";
 import { getPageContext } from "@/lib/page/context";
 import { getAnalysisBundle, assertAnalysisCurrent } from "@/lib/services/analysis.service";
-import { humanize } from "@/lib/format";
+import { APPROVAL_TTL_MS } from "@/lib/services/approval.service";
+import { formatDateTime, humanize } from "@/lib/format";
 import { serverNow } from "@/lib/app/clock";
 
 export const metadata: Metadata = {
@@ -267,6 +268,23 @@ export default async function ConsentPage({
               <KeyValue label="Intent version">
                 <span className="font-mono-num">v{analysis.intentVersion}</span>
               </KeyValue>
+              <KeyValue label="Policy version">
+                <span className="font-mono-num">
+                  {bundle.policy ? `v${bundle.policy.version}` : "—"}
+                </span>
+              </KeyValue>
+              <KeyValue label="Cost model">
+                <span className="font-mono-num">
+                  {analysis.totals.current12.calculationVersion ?? "unrecorded"}
+                </span>
+              </KeyValue>
+              <KeyValue label="Consent window">
+                {existingApproval
+                  ? `Expires ${formatDateTime(existingApproval.expiresAt)}`
+                  : `${formatDateTime(
+                      new Date(serverNow() + APPROVAL_TTL_MS).toISOString(),
+                    )} if recorded now`}
+              </KeyValue>
               <KeyValue label="Unknowns">
                 {analysis.unknowns.length === 0 ? (
                   <Badge tone="ok">None material</Badge>
@@ -321,6 +339,83 @@ export default async function ConsentPage({
               Review every consequence and evidence quote
             </Link>
           </div>
+        </Panel>
+      </div>
+
+      <div className="mt-6">
+        <Panel className="overflow-hidden">
+          <PanelHeader
+            title="Binding and invalidation"
+            description="The service re-derives these values before it records consent and again before it allows execution. Nothing here is a UI-only check."
+            action={
+              <Badge tone={staleReason ? "danger" : "ok"}>
+                {staleReason ? "Stale" : "Matches the ledger"}
+              </Badge>
+            }
+          />
+          <ul className="divide-y divide-line">
+            {[
+              {
+                label: "Input hash re-derived from the ledger",
+                value: staleReason
+                  ? "Mismatch — re-run required"
+                  : analysis.inputHash.slice(0, 24) + "…",
+                ok: !staleReason,
+              },
+              {
+                label: "Offer version bound to the analysis",
+                value: `v${analysis.offerVersion} (offer v${offer.offerVersion})`,
+                ok: analysis.offerVersion === offer.offerVersion,
+              },
+              {
+                label: "Cost model version",
+                value: analysis.totals.current12.calculationVersion ?? "unrecorded",
+                ok: Boolean(analysis.totals.current12.calculationVersion),
+              },
+              {
+                label: "Approval lifetime",
+                value: "24 hours from consent, then APPROVAL_EXPIRED",
+                ok: true,
+              },
+              {
+                label: "Acknowledgement gate",
+                value: `${materialConsequences.length} high/critical consequence${
+                  materialConsequences.length === 1 ? "" : "s"
+                } must be ticked by the approver`,
+                ok: true,
+              },
+            ].map((check) => (
+              <li
+                key={check.label}
+                className="flex flex-wrap items-center justify-between gap-2 px-5 py-2.5 text-[11px]"
+              >
+                <span className="text-ink-muted">{check.label}</span>
+                <span className="flex items-center gap-2">
+                  <span className="font-mono-num text-[10px] text-ink">
+                    {check.value}
+                  </span>
+                  <Badge tone={check.ok ? "ok" : "danger"}>
+                    {check.ok ? "bound" : "stale"}
+                  </Badge>
+                </span>
+              </li>
+            ))}
+          </ul>
+          {staleReason ? (
+            <div className="border-t border-line px-5 py-3">
+              <InlineNotice tone="danger" title="APPROVAL_STALE">
+                {staleReason} Consent and execution are refused with a 409; no
+                approval, receipt or payment is written from a stale basis.
+              </InlineNotice>
+            </div>
+          ) : (
+            <p className="border-t border-line px-5 py-3 text-[10px] leading-4 text-ink-faint">
+              If the offer, policy, ledger, evidence or cost model changes after
+              consent, the recorded hash no longer matches. The service answers{" "}
+              <span className="font-mono-num text-ink-muted">409 APPROVAL_STALE</span>{" "}
+              instead of executing — even when the button is clicked from a stale tab.
+            </p>
+          )}
         </Panel>
       </div>
 

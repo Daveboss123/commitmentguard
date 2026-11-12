@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { ArrowLeft, ArrowRight, KeyRound, ShieldCheck } from "lucide-react";
+import { ArrowLeft, KeyRound, ShieldCheck } from "lucide-react";
 import { BrandMark } from "@/components/brand-mark";
 import { Badge, InlineNotice, Panel } from "@/components/ui";
 import { buttonClass } from "@/components/button";
@@ -112,7 +112,6 @@ export default async function LoginPage({
 
               <button type="submit" className={buttonClass("primary", "w-full")}>
                 Continue as Alex Morgan
-                <ArrowRight className="size-4" />
               </button>
 
               <p className="mt-4 text-[11px] leading-4 text-ink-faint">

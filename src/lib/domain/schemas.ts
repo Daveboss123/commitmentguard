@@ -114,6 +114,34 @@ export const CreateAnalysisRequestSchema = z.object({
   offerId: z.string().min(1),
 });
 
+/**
+ * What-if overrides. These re-run the real engine against a hypothetical
+ * policy/offer and are never persisted or used as an approval basis.
+ */
+export const ScenarioRequestSchema = z
+  .object({
+    maxContractMonths: z.number().int().positive().max(120).nullable().optional(),
+    minimumMonthlySavingMinor: z
+      .number()
+      .int()
+      .nonnegative()
+      .max(10_000_000)
+      .nullable()
+      .optional(),
+    maxOneTimeFeeMinor: z
+      .number()
+      .int()
+      .nonnegative()
+      .max(10_000_000)
+      .nullable()
+      .optional(),
+    /** Hypothetical offer term: would the family discount survive the switch? */
+    retainFamilyDiscount: z.boolean().nullable().optional(),
+  })
+  .refine((value) => Object.keys(value).length > 0, {
+    message: "At least one scenario override is required",
+  });
+
 export const ApprovalRequestSchema = z.object({
   decision: z.enum(["approve", "reject", "request_changes"]),
   acknowledgedConsequences: z.array(z.string()).default([]),

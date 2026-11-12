@@ -1,7 +1,99 @@
 # Build Notes
 
 Verification log and submission state for the SERV Hackathon 02 build.
-Last updated: **2026-11-08**.
+Last updated: **2026-11-12**.
+
+## 2026-11-12 — monetary reconciliation, verification surfaces, scenario sandbox
+
+This pass is about one rule: **every displayed dollar figure must be
+reproducible from integer minor units**, and every claim must say what was and
+was not checked.
+
+### Cost model: auditable line items (`tco-1.1.0`)
+
+- `TcoLine` now carries `id`, `label`, `frequency`, `quantity`, `currency`,
+  `startMonth`/`endMonth`, `sourceEvidenceId`, `includedInTotal`, `direction`
+  and a written `calculationExplanation` (e.g. `$55.00 × 18 months (month
+  7–24) = $990.00`).
+- `TcoResult.calculationVersion` is part of the analysis input hash, so a cost
+  model change invalidates an approval the same way a ledger change does.
+- Offer A's 24-month proposed total is now demonstrably
+  `$180 + $990 + $70 + $120 + $1,440 = $2,800` (18000 + 99000 + 7000 + 12000
+  + 144000 minor units), and the app shows that arithmetic per line, with a
+  footer that re-sums the rows and compares them to the reported total.
+- New `ONE_TIME_FEE_EXCEEDS_LIMIT` constraint: an optional
+  `policy.maxOneTimeFeeMinor` blocks installation + activation above the limit.
+- Landing-page headline changed from a hand-typed `$930` to `$760` derived
+  from the engine's `delta24Minor`, with a Difference column and two
+  cost-breakdown panels. The 24-month comparison now reconciles:
+  current $2,040 vs proposed $2,800 → +$760.
+
+### Verification surfaces
+
+- **Reasoning trace** (`/app/analyses/[id]`): eight recorded stages from
+  request interpretation to final decision. Durations appear only where SERV
+  actually reported them; engine stages say "not instrumented". A failure-
+  handling table lists the fail-closed outcome for timeout, schema mismatch,
+  missing field, unsupported currency, unverifiable quote and model refusal.
+- **Evidence explorer**: each fact shows five separate statuses — quote located,
+  document hash vs the recorded version, source authenticity (**"Not checked"**
+  — no provider-authentication service is integrated), currentness and
+  conflicts — plus the highlighted passage in its source.
+- **Receipt verifier checks**: payload format, recomputed hash, chain link,
+  linked analysis (id **and** hash must match the stored analysis), stage
+  order. Signature/authenticity, provider activation and settlement are
+  explicitly listed as *not checked*.
+- **Consent binding panel**: input hash, offer version, policy version, cost
+  model version, 24-hour consent window and the exact `409 APPROVAL_STALE`
+  path when the basis changes.
+
+### Scenario sandbox (what-if, never persisted)
+
+`POST /api/analyses/[id]/scenario` re-runs the real engine against hypothetical
+policy limits (contract length, minimum saving, one-off fee ceiling) and a
+hypothetical retention flag. Nothing is written: no analysis, receipt,
+approval or payment. The panel says so, and the service returns
+`notPersisted: true`. An explicit document exclusion still wins over the
+retention flag — the sandbox shows that rather than fabricating an escape.
+
+Tests prove both directions: relaxing limits on Offer A removes
+`MAX_CONTRACT_MONTHS` but the minimum-saving target keeps it blocked, and
+tightening the saving target turns the allowed Offer B into a block. Both assert
+that analysis and receipt counts are unchanged.
+
+### Benchmark split (engine only, denominators published)
+
+The report now declares `kind: "engine"`, `benchmarkVersion`, per-metric
+`ratios` (numerator + denominator), `counts`, per-case provenance
+(`fixtureId`, `inputMode: "fixture"`, `modelConfig: "none — deterministic
+engine"`, `generatedAt`, `failureReason`) and an explicit
+`servExtraction: { measured: false, … }` block. The benchmark page renders a
+"SERV extraction benchmark — Not measured" panel and shows the denominator in
+every metric card and baseline cell. See [BENCHMARK.md](BENCHMARK.md).
+
+### Verification log for this pass
+
+| Check | Result |
+| --- | --- |
+| `npm run typecheck` | clean |
+| `npm run lint` | 0 errors, 0 warnings |
+| `npm test` | **24/24 across 3 files** (12 engine/domain/workflow + benchmark runner) |
+| `npm run build` | clean; new `POST /api/analyses/[id]/scenario` is dynamic |
+| Benchmark | 30/30 engine cases; evidence quotes 599/603 with the four deliberately corrupted quotes flagged |
+
+### Honesty notes added in this pass
+
+- A hash proves integrity against the recorded version, not source
+  authenticity or authorship; the UI says this next to every evidence item and
+  receipt.
+- The scenario sandbox is a planning tool, not a decision of record, and cannot
+  be approved.
+- The platform flow on `/app/integrations` uses real route paths but its JSON
+  bodies are explicitly labelled **conceptual shapes**, not a published SDK
+  contract.
+- Latency remains engine-only; SERV is not called by the benchmark.
+
+---
 
 ## Verification log (2026-11-08, all four green in this order)
 

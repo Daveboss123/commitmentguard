@@ -8,7 +8,13 @@ import type {
   Offer,
   UserPolicy,
 } from "@/lib/domain/types";
+import type {
+  ScenarioEvaluation,
+  ScenarioOutcome,
+  ScenarioOverrides,
+} from "@/lib/domain/scenario";
 import { buildAnalysis } from "@/lib/domain/decision";
+import { formatMoneyMinor } from "@/lib/domain/money";
 import { mutateDatabase, getDatabase } from "@/lib/store/database";
 import {
   appendAudit,
@@ -346,5 +352,192 @@ export async function assertAnalysisCurrent(analysis: Analysis): Promise<{
     intent,
     policy: policyForHousehold,
     currentHash: rebuilt.inputHash,
+  };
+}
+
+export type {
+  ScenarioEvaluation,
+  ScenarioOutcome,
+  ScenarioOverrides,
+} from "@/lib/domain/scenario";
+
+export function toScenarioOutcome(analysis: Analysis): ScenarioOutcome {
+  return {
+    decision: analysis.decision,
+    current12Minor: analysis.totals.current12.totalMinor,
+    proposed12Minor: analysis.totals.proposed12.totalMinor,
+    current24Minor: analysis.totals.current24.totalMinor,
+    proposed24Minor: analysis.totals.proposed24.totalMinor,
+    delta12Minor: analysis.totals.delta12Minor,
+    delta24Minor: analysis.totals.delta24Minor,
+    unknowns: analysis.unknowns,
+    evidenceValid: analysis.evidenceValidation.valid,
+    evidenceTotal: analysis.evidenceValidation.total,
+    reasonCodes: analysis.decisionReasons.map((reason) => reason.code),
+    blockers: analysis.decisionReasons
+      .filter(
+        (reason) => reason.severity === "critical" || reason.severity === "high",
+      )
+      .slice(0, 5)
+      .map((reason) => ({
+        code: reason.code,
+        title: reason.title,
+        severity: reason.severity,
+      })),
+    costModel: analysis.totals.current12.calculationVersion ?? "unrecorded",
+  };
+}
+
+/**
+ * Re-runs the real deterministic engine with hypothetical policy or offer
+ * terms. The result is deliberately not persisted and cannot be approved: an
+ * approval is always bound to a stored analysis hash.
+ */
+export async function runAnalysisScenario(
+  analysisId: string,
+  overrides: ScenarioOverrides,
+): Promise<ScenarioEvaluation> {
+  const analysis = await getAnalysis(analysisId);
+  if (!analysis) throw new ApiError("NOT_FOUND", "Analysis not found.");
+  await requireHouseholdAccess(analysis.householdId);
+
+  const database = await getDatabase();
+  const intent = database.intents.find(
+    (item) => item.id === analysis.intentContractId,
+  );
+  const offer = database.offers.find((item) => item.id === analysis.offerId);
+  const policy =
+    database.policies
+      .filter((item) => item.householdId === analysis.householdId)
+      .sort((left, right) => right.version - left.version)[0] ?? null;
+  if (!intent || !offer || !policy) {
+    throw new ApiError(
+      "NOT_FOUND",
+      "The analysis inputs are no longer available for a scenario.",
+    );
+  }
+
+  const commitments = database.commitments.filter(
+    (item) => item.householdId === analysis.householdId && item.status === "active",
+  );
+  const benefits = database.benefits.filter(
+    (item) => item.householdId === analysis.householdId,
+  );
+  const dependencies = database.dependencies.filter(
+    (item) => item.householdId === analysis.householdId,
+  );
+  const evidenceIds = currentEvidenceIds(commitments, benefits, dependencies);
+  const currentEvidence = database.evidence.filter((item) =>
+    evidenceIds.includes(item.id),
+  );
+  const documents = database.documents.filter(
+    (item) => item.householdId === analysis.householdId,
+  );
+
+  const scenarioIntent: IntentContract = {
+    ...intent,
+    maxContractMonths:
+      overrides.maxContractMonths === undefined
+        ? intent.maxContractMonths
+        : overrides.maxContractMonths,
+    minimumMonthlySavingMinor:
+      overrides.minimumMonthlySavingMinor === undefined
+        ? intent.minimumMonthlySavingMinor
+        : overrides.minimumMonthlySavingMinor,
+  };
+  const scenarioPolicy: UserPolicy = {
+    ...policy,
+    maxOneTimeFeeMinor:
+      overrides.maxOneTimeFeeMinor === undefined
+        ? (policy.maxOneTimeFeeMinor ?? null)
+        : overrides.maxOneTimeFeeMinor,
+  };
+  const scenarioOffer: Offer = {
+    ...offer,
+    terms: {
+      ...offer.terms,
+      familyBundleDiscountRetained:
+        overrides.retainFamilyDiscount === undefined ||
+        overrides.retainFamilyDiscount === null
+          ? offer.terms.familyBundleDiscountRetained
+          : overrides.retainFamilyDiscount,
+    },
+  };
+
+  const rebuilt = buildAnalysis({
+    householdId: analysis.householdId,
+    intent: scenarioIntent,
+    policy: scenarioPolicy,
+    offer: scenarioOffer,
+    commitments,
+    benefits,
+    dependencies,
+    currentEvidence,
+    documents,
+  });
+
+  const currency = intent.currency;
+  const appliedOverrides: ScenarioEvaluation["appliedOverrides"] = [];
+  if (overrides.maxContractMonths !== undefined) {
+    appliedOverrides.push({
+      field: "maxContractMonths",
+      label: "Maximum contract length",
+      before:
+        intent.maxContractMonths === null
+          ? "no limit"
+          : `${intent.maxContractMonths} months`,
+      after:
+        overrides.maxContractMonths === null
+          ? "no limit"
+          : `${overrides.maxContractMonths} months`,
+    });
+  }
+  if (overrides.minimumMonthlySavingMinor !== undefined) {
+    appliedOverrides.push({
+      field: "minimumMonthlySavingMinor",
+      label: "Minimum monthly saving",
+      before: formatMoneyMinor(intent.minimumMonthlySavingMinor, currency),
+      after: formatMoneyMinor(
+        overrides.minimumMonthlySavingMinor,
+        currency,
+      ),
+    });
+  }
+  if (overrides.maxOneTimeFeeMinor !== undefined) {
+    appliedOverrides.push({
+      field: "maxOneTimeFeeMinor",
+      label: "One-off fee limit",
+      before: formatMoneyMinor(policy.maxOneTimeFeeMinor ?? null, currency),
+      after: formatMoneyMinor(overrides.maxOneTimeFeeMinor, currency),
+    });
+  }
+  if (
+    overrides.retainFamilyDiscount !== undefined &&
+    overrides.retainFamilyDiscount !== null
+  ) {
+    appliedOverrides.push({
+      field: "familyBundleDiscountRetained",
+      label: "Family discount retained (hypothetical offer term)",
+      before:
+        offer.terms.familyBundleDiscountRetained === null
+          ? "unknown"
+          : offer.terms.familyBundleDiscountRetained
+            ? "retained"
+            : "lost",
+      after: overrides.retainFamilyDiscount ? "retained" : "lost",
+    });
+  }
+
+  return {
+    label: "Hypothetical scenario",
+    disclaimer:
+      "Not saved, not sent to SERV, and never an approval basis. The stored analysis and any approval remain bound to the real ledger and offer version.",
+    base: toScenarioOutcome(analysis),
+    scenario: toScenarioOutcome(rebuilt),
+    appliedOverrides,
+    notPersisted: true,
+    retentionLockedByExclusion: offer.terms.excludedBenefits.some(
+      (item) => item.key === "family_mobile_bundle_discount",
+    ),
   };
 }

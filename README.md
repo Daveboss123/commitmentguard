@@ -88,22 +88,27 @@ npm run lint
 npm run build       # production build with Cache Components + partial prefetching
 ```
 
-Latest verified state: typecheck clean, **20/20 vitest tests** and **30/30
+Latest verified state: typecheck clean, **24/24 vitest tests** and **30/30
 benchmark cases** green, production build clean (landing `/` prerendered
 static, authenticated app routes dynamic or partial-prerendered). See
 [BUILD_NOTES.md](BUILD_NOTES.md) for what was checked and how.
 
 ## Measured results (see [BENCHMARK.md](BENCHMARK.md))
 
-| Metric (30 hand-authored cases)              | Measured |
-| -------------------------------------------- | -------- |
-| Cases passed                                  | 30/30    |
-| Decision accuracy (allow/review/block)        | 1.0      |
-| Hard-constraint block rate                    | 1.0      |
-| False-block rate                              | 0        |
-| Total-cost-of-ownership accuracy (integer)    | 1.0      |
-| Evidence quote validity                       | 0.9934*  |
-| Mean analysis latency (engine only, no SERV)  | ~1.3 ms  |
+This is an **engine benchmark**. SERV extraction quality is not measured in this
+build, and no extraction percentage is claimed.
+
+| Metric (30 hand-authored cases)              | Measured  | Ratio      |
+| -------------------------------------------- | --------- | ---------- |
+| Cases passed                                  | 30/30    | 30 / 30    |
+| Decision accuracy (allow/review/block)        | 1.0      | 30 / 30    |
+| Hard-constraint block rate                    | 1.0      | 11 / 11    |
+| False-block rate                              | 0        | 0 / 12     |
+| Material consequence recall                   | 1.0      | 39 / 39    |
+| Total-cost-of-ownership accuracy (integer)    | 1.0      | 120 / 120  |
+| Evidence quote validity                       | 0.9934*  | 599 / 603  |
+| Unknown handling                              | 1.0      | 6 / 6      |
+| Mean analysis latency (engine only, no SERV)  | ~1–4 ms  | 30 runs    |
 
 \* Four evidence quotes in the integrity cases are deliberately corrupted and
 **cannot** be located — flagging them is the correct behaviour, and the engine

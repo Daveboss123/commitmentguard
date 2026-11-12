@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { connection } from "next/server";
 import { ArrowLeft, KeyRound, ShieldCheck } from "lucide-react";
 import { BrandMark } from "@/components/brand-mark";
 import { Badge, InlineNotice, Panel } from "@/components/ui";
@@ -26,6 +27,9 @@ export default async function LoginPage({
 }: {
   searchParams: Promise<{ error?: string }>;
 }) {
+  // The session cookie is decoded (and its expiry compared to "now") below, so
+  // stop prerendering before any clock read.
+  await connection();
   const session = await getSession();
   if (session) redirect("/app");
   const { error } = await searchParams;
@@ -137,7 +141,7 @@ export default async function LoginPage({
       </main>
 
       <footer className="mx-auto flex w-full max-w-[1180px] flex-wrap items-center justify-between gap-3 px-5 py-5 text-[11px] text-ink-faint sm:px-8">
-        <span>{brand.workingNameNote}</span>
+        <span>{brand.note}</span>
         <span>{demoLabels.provider} · {demoLabels.illustrative}</span>
       </footer>
     </div>

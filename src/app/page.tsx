@@ -639,7 +639,7 @@ export default function LandingPage() {
       <footer className="border-t border-line bg-paper">
         <div className="mx-auto flex max-w-[1180px] flex-wrap items-center justify-between gap-4 px-5 py-6 text-[11px] text-ink-faint sm:px-8">
           <span>
-            {brand.name} · {brand.workingNameNote}
+            {brand.name} · {brand.note}
           </span>
           <span>
             Demo provider · Illustrative terms · Simulated checkout — no real

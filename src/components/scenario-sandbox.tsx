@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Loader2, Play, RotateCcw } from "lucide-react";
 import { Badge, DecisionBadge, InlineNotice, Money, Panel, PanelHeader } from "./ui";
 import { buttonClass } from "./button";
+import { decimalToMinor, minorToDecimal } from "@/lib/domain/money";
 import type { ScenarioEvaluation, ScenarioOutcome } from "@/lib/domain/scenario";
 
 function errorMessage(payload: unknown, fallback: string): string {
@@ -21,17 +22,15 @@ function errorMessage(payload: unknown, fallback: string): string {
   return fallback;
 }
 
-function dollarsToMinor(value: string): number | null {
+function inputToMinor(value: string, currency: string): number | null {
   const trimmed = value.trim();
   if (!trimmed) return null;
-  const parsed = Number(trimmed);
-  if (!Number.isFinite(parsed) || parsed < 0) return null;
-  return Math.round(parsed * 100);
+  return decimalToMinor(trimmed, currency);
 }
 
-function minorToDollars(value: number | null | undefined): string {
+function minorToInput(value: number | null | undefined, currency: string): string {
   if (value === null || value === undefined) return "";
-  return (value / 100).toFixed(2);
+  return minorToDecimal(value, currency);
 }
 
 function decisionTone(
@@ -64,10 +63,10 @@ export function ScenarioSandbox({
     defaults.maxContractMonths === null ? "" : String(defaults.maxContractMonths),
   );
   const [minSaving, setMinSaving] = useState(
-    minorToDollars(defaults.minimumMonthlySavingMinor),
+    minorToInput(defaults.minimumMonthlySavingMinor, currency),
   );
   const [oneOffLimit, setOneOffLimit] = useState(
-    minorToDollars(defaults.maxOneTimeFeeMinor),
+    minorToInput(defaults.maxOneTimeFeeMinor, currency),
   );
   const [discount, setDiscount] = useState<"asis" | "retained" | "lost">("asis");
   const [result, setResult] = useState<ScenarioEvaluation | null>(null);
@@ -78,8 +77,8 @@ export function ScenarioSandbox({
     setMaxContractMonths(
       defaults.maxContractMonths === null ? "" : String(defaults.maxContractMonths),
     );
-    setMinSaving(minorToDollars(defaults.minimumMonthlySavingMinor));
-    setOneOffLimit(minorToDollars(defaults.maxOneTimeFeeMinor));
+    setMinSaving(minorToInput(defaults.minimumMonthlySavingMinor, currency));
+    setOneOffLimit(minorToInput(defaults.maxOneTimeFeeMinor, currency));
     setDiscount("asis");
     setResult(null);
     setError(null);
@@ -92,8 +91,8 @@ export function ScenarioSandbox({
       const months = maxContractMonths.trim();
       const overrides: Record<string, number | boolean | null> = {
         maxContractMonths: months ? Number(months) : null,
-        minimumMonthlySavingMinor: dollarsToMinor(minSaving),
-        maxOneTimeFeeMinor: dollarsToMinor(oneOffLimit),
+        minimumMonthlySavingMinor: inputToMinor(minSaving, currency),
+        maxOneTimeFeeMinor: inputToMinor(oneOffLimit, currency),
       };
       if (discount !== "asis") {
         overrides.retainFamilyDiscount = discount === "retained";
@@ -163,7 +162,7 @@ export function ScenarioSandbox({
             <input
               type="number"
               min={0}
-              step="0.01"
+              step={minorToDecimal(1, currency)}
               value={minSaving}
               onChange={(event) => setMinSaving(event.target.value)}
               placeholder="none"
@@ -180,7 +179,7 @@ export function ScenarioSandbox({
             <input
               type="number"
               min={0}
-              step="0.01"
+              step={minorToDecimal(1, currency)}
               value={oneOffLimit}
               onChange={(event) => setOneOffLimit(event.target.value)}
               placeholder="no limit"

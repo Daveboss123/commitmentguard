@@ -34,6 +34,36 @@ export function assertNonNegativeMinor(value: number, label = "amount"): void {
   }
 }
 
+/** Parse a non-negative decimal input using integer arithmetic, never rounding. */
+export function decimalToMinor(value: string, currency = "USD"): number {
+  const text = value.trim();
+  const digits = minorDigits(currency);
+  if (!/^\d+(\.\d+)?$/.test(text)) {
+    throw new Error("Enter a non-negative decimal amount.");
+  }
+  const [whole, fraction = ""] = text.split(".");
+  if (fraction.length > digits) {
+    throw new Error(`${currency} amounts support at most ${digits} decimal places.`);
+  }
+  const minor = BigInt(whole) * BigInt(10) ** BigInt(digits) +
+    BigInt(fraction.padEnd(digits, "0") || "0");
+  if (minor > BigInt(Number.MAX_SAFE_INTEGER)) {
+    throw new Error("Amount exceeds the safe integer limit.");
+  }
+  return Number(minor);
+}
+
+/** Exact decimal input formatting; unlike Intl, this never adds grouping. */
+export function minorToDecimal(value: number, currency = "USD"): string {
+  assertNonNegativeMinor(value);
+  const digits = minorDigits(currency);
+  const scale = BigInt(10) ** BigInt(digits);
+  const minor = BigInt(value);
+  return digits === 0
+    ? String(minor)
+    : `${minor / scale}.${String(minor % scale).padStart(digits, "0")}`;
+}
+
 export function addMinor(values: number[]): number {
   return values.reduce((total, value) => {
     assertMinorUnits(value);

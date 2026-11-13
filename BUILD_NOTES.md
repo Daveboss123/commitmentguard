@@ -3,6 +3,36 @@
 Verification log and submission state for the SERV Hackathon 02 build.
 Last updated: **2026-11-13**.
 
+## 2026-11-13 — receipt layout fix and demo video
+
+A desktop layout bug was found while recording the walkthrough: the canonical
+payload's long unbreakable JSON line sized the receipt page's `1.25fr/0.75fr`
+grid track to its min-content width (1891 px), which pushed the verifier-checks
+column to x=2411 and off the canvas. The order and settlement checks were real
+but invisible at any viewport width above `lg`, and the same auto-track behaviour
+overflowed the settings page and the landing consequence table on narrow
+screens.
+
+Fixed by constraining both tracks with `minmax(0, …)` and giving the mobile base
+a `minmax(0, 1fr)` column (`92a47a8`). No data, claims or copy changed.
+
+Verification after deploy:
+
+- Receipt page at 390/768/1440/1920 px: no horizontal overflow, verifier-checks
+  column visible at 722.5 px / 433.5 px, all seven checks listed including the
+  two explicit **Not checked** rows.
+- Automated overflow audit over 29 live routes (landing, dashboard, list pages,
+  analyses, approvals, executions and seven receipts) at five widths: **145/145
+  combinations with no horizontal overflow**.
+- `npm run typecheck` and `npm run lint` clean.
+
+Demo video (local pipeline, untracked like the previous RunLatch tooling):
+`.local/video-production/edit-v5-final/trycommit-product-demo.mp4`, 159.65 s, 1920×1080 h264/aac 30 fps,
+20 612 764 bytes, sha256 `8370f4d11ea112c452f7b64fbd348f3371be2f7a918fa219861024db003fa715`,
+captured live at commit `92a47a8`, Kokoro `af_heart` local inference (0 paid
+calls), zero unexpected silences over 0.45 s, no synthetic product screens and
+no payment executed.
+
 ## 2026-11-13 — pre-video interface refinement and plan audit
 
 An item-by-item audit is published in [BUILD_PLAN_STATUS.md](BUILD_PLAN_STATUS.md).

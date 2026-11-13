@@ -152,13 +152,15 @@ export function AppNav({
         </div>
       </aside>
 
-      <div className="sticky top-0 z-30 flex items-center justify-between border-b border-line bg-surface/95 px-4 py-3 backdrop-blur lg:hidden">
+      <div className="sticky top-0 z-30 flex w-full shrink-0 items-center justify-between border-b border-line bg-surface/95 px-4 py-3 backdrop-blur lg:hidden">
         <BrandMark href="/app" size="default" />
         <button
           type="button"
           onClick={() => setOpen(true)}
-          className="flex size-9 items-center justify-center rounded-lg border border-line text-ink-muted"
+          className="flex size-11 items-center justify-center rounded-lg border border-line text-ink-muted"
           aria-label="Open navigation"
+          aria-expanded={open}
+          aria-controls="mobile-navigation"
         >
           <Menu className="size-4" />
         </button>
@@ -172,13 +174,13 @@ export function AppNav({
             aria-label="Close navigation"
             onClick={() => setOpen(false)}
           />
-          <div className="absolute inset-y-0 left-0 flex w-[86%] max-w-[300px] flex-col border-r border-line bg-surface shadow-panel">
+          <div id="mobile-navigation" className="absolute inset-y-0 left-0 flex w-[86%] max-w-[300px] flex-col border-r border-line bg-surface shadow-panel">
             <div className="flex items-center justify-between px-5 py-4">
               <BrandMark href="/app" />
               <button
                 type="button"
                 onClick={() => setOpen(false)}
-                className="flex size-8 items-center justify-center rounded-lg border border-line text-ink-muted"
+                className="flex size-11 items-center justify-center rounded-lg border border-line text-ink-muted"
                 aria-label="Close navigation"
               >
                 <X className="size-4" />

@@ -21,7 +21,7 @@ export default async function AppLayout({
   const { household, member } = await getPageContext();
 
   return (
-    <div className="flex min-h-dvh bg-paper">
+    <div className="flex min-h-dvh flex-col bg-paper lg:flex-row">
       <AppNav
         householdName={household.name}
         memberName={member?.displayName ?? "Household owner"}

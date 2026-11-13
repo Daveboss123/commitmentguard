@@ -3,6 +3,27 @@
 Verification log and submission state for the SERV Hackathon 02 build.
 Last updated: **2026-11-13**.
 
+## 2026-11-13 — responsive app-shell correction
+
+The reported narrow-screen layout was caused by the app shell using `flex`
+without a mobile column direction. The mobile header and page became siblings
+in a horizontal row, stretching the header into a full-height left rail and
+causing page-level overflow.
+
+- The shell now uses `flex-col lg:flex-row`: top header below 1024 px, desktop
+  sidebar at 1024 px and above.
+- The mobile header is full-width and non-shrinking; open/close menu controls
+  have 44 px targets and the opener reports its expanded state.
+- Dashboard grid children have `min-w-0` and an explicit single-column mobile
+  track, keeping wide tables inside their own horizontal scroll containers.
+- Added a server-rendered layout regression test for the breakpoint direction
+  and main-content shrinkability. **39/39 tests across 6 files** now pass.
+- Local Chromium viewport checks at **375, 800, 1024 and 1440 px** showed no
+  page-level horizontal overflow. The mobile header is 69 px tall rather than
+  full-page height; the desktop sidebar remains 252 px wide. The mobile drawer
+  opened/closed without shifting the page or extending beyond the viewport.
+
+
 ## 2026-11-13 — hosted consistency and final correctness follow-up
 
 Production testing on remediation commit `128bf81` exposed a real limitation:

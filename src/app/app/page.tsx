@@ -141,8 +141,8 @@ export default async function DashboardPage() {
         </Panel>
       </div>
 
-      <div className="mt-6 grid gap-6 xl:grid-cols-[1.35fr_0.65fr]">
-        <div className="space-y-6">
+      <div className="mt-6 grid grid-cols-1 gap-6 xl:grid-cols-[1.35fr_0.65fr]">
+        <div className="min-w-0 space-y-6">
           <Panel>
             <PanelHeader
               title="Household commitments"
@@ -323,7 +323,7 @@ export default async function DashboardPage() {
           </Panel>
         </div>
 
-        <div className="space-y-6">
+        <div className="min-w-0 space-y-6">
           <Panel>
             <PanelHeader
               title="Integration health"

@@ -88,7 +88,7 @@ npm run lint
 npm run build       # production build with Cache Components + partial prefetching
 ```
 
-Latest verified state: typecheck clean, **38/38 vitest tests** and **30/30
+Latest verified state: typecheck clean, **39/39 vitest tests** and **30/30
 benchmark cases** green, production build clean (landing `/` prerendered
 static, authenticated app routes dynamic or partial-prerendered). See
 [BUILD_NOTES.md](BUILD_NOTES.md) for what was checked and how.

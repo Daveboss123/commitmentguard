@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-label="trycommit">
+  <title>trycommit</title>
+  <rect width="512" height="512" rx="116" fill="#0F6B5C" />
+  <g fill="none" stroke="#FFFDF7" stroke-width="19.2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M256 112.5 370.8 157.6V242.88C370.8 313.4 324.9 372.4 256 399.5 187.1 372.4 141.2 313.4 141.2 242.88V157.6Z" />
+    <path d="M205.2 257.6 238.8 291.2 306.9 220.7" />
+  </g>
+</svg>

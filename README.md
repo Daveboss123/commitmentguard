@@ -1,5 +1,7 @@
 # trycommit
 
+<img src="public/brand/trycommit-icon-256.png" width="72" height="72" alt="trycommit logo" align="right" />
+
 **Understand the consequence before you consent.**
 
 trycommit is a commitment consequence-analysis and consent layer for AI

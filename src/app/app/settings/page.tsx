@@ -48,7 +48,7 @@ export default async function SettingsPage() {
         }
       />
 
-      <div className="grid gap-6 xl:grid-cols-[1.25fr_0.75fr]">
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-6 xl:grid-cols-[minmax(0,1.25fr)_minmax(0,0.75fr)]">
         <div className="space-y-6">
           <Panel className="overflow-hidden">
             <PanelHeader

@@ -243,7 +243,7 @@ export default async function ReceiptDetailPage({
         </div>
       )}
 
-      <div className="mt-6 grid gap-6 lg:grid-cols-[1.25fr_0.75fr]">
+      <div className="mt-6 grid grid-cols-[minmax(0,1fr)] gap-6 lg:grid-cols-[minmax(0,1.25fr)_minmax(0,0.75fr)]">
         <div className="space-y-6">
           <Panel className="overflow-hidden">
             <PanelHeader

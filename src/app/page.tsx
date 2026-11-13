@@ -299,7 +299,7 @@ export default function LandingPage() {
         </section>
 
         <section className="border-y border-line bg-surface">
-          <div className="mx-auto grid max-w-[1180px] gap-10 px-5 py-16 sm:px-8 lg:grid-cols-[1.1fr_0.9fr] lg:py-20">
+          <div className="mx-auto grid max-w-[1180px] grid-cols-[minmax(0,1fr)] gap-10 px-5 py-16 sm:px-8 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)] lg:py-20">
             <div>
               <div className="text-[13px] text-ink-muted">The consequence gap</div>
               <h2 className="mt-3 font-display text-[34px] leading-[1.05] tracking-[-0.02em] text-ink sm:text-[40px]">

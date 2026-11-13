@@ -37,6 +37,9 @@ yarn-error.log*
 # local demo store (seeded JSON database, never commit)
 /.data/
 
+# local video production artifacts (narration, captures, renders)
+/.local/
+
 # vercel
 .vercel
 

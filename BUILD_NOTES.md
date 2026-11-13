@@ -91,6 +91,13 @@ Two copy corrections from this pass: the conceptual walkthrough now uses the
 implemented **GET** receipt-verification method; rejection/request-changes copy
 correctly promises a decision record and audit event, not an approval receipt.
 
+Redeploy continuity check: commit `5e89558` reached **READY** as deployment
+`dpl_35nnmKqFEgnxKfprCykdX6Xq34eJ`. After that redeploy, the same intent,
+execution and receipt above still returned **200**, with execution still
+simulated/succeeded and receipt `verified: true` with the unchanged content hash.
+The receipt page showed five passing checks, signature/settlement **Not checked**,
+and no recorded console errors. This check performed no new execution.
+
 ## 2026-11-12 — monetary reconciliation, verification surfaces, scenario sandbox
 
 This pass is about one rule: **every displayed dollar figure must be

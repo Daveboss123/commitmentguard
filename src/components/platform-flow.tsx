@@ -189,7 +189,7 @@ const steps: FlowStep[] = [
     detail:
       "Each stage appends a receipt whose content hash covers the canonical payload and links to the previous receipt.",
     request: `// then
-POST /api/receipts/{id}/verify`,
+GET /api/receipts/{id}/verify`,
     response: `{
   "verification": {
     "valid": true,

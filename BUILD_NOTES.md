@@ -52,7 +52,44 @@ execute requests, adapter timeouts and disconnected/corrupt receipt ancestors.
 After the trycommit rename: all checks re-run clean; **38/38 tests across 5
 files**, including new/legacy receipt-kind compatibility without payload edits.
 
-Production verification for this follow-up is recorded below after deployment.
+### Production verification (2026-11-13, commit `bd8ad02`)
+
+Deployment `dpl_Djyj2iJFfhbQc3RkfNTh1DnUYdU1` reached **READY** and serves
+<https://trycommit.vercel.app>. The renamed GitHub repository is
+<https://github.com/Daveboss123/trycommit>; the Vercel project id did not change.
+
+- `/api/health`: `storage: upstash`, SERV configured, Kite `mock` / `simulated`.
+- New-domain demo login and **live SERV intent extraction** succeeded:
+  `gpt-5.4-mini-2026-03-17`, recorded latency **7061 ms** (one call, not a benchmark).
+- Confirmed intent `int_72dd4476-4e7b-4ee6-89d8-397511a32b8d` remained available
+  across the subsequent comparison, analysis, consent and execution requests.
+- BrightWave `ana_6d4c0ce9-7b6c-449b-beec-c07a1de93d88`: **block**, +76000 minor
+  over 24 months. All four cost-breakdown panels reconcile.
+- HarborLink `ana_99b538af-3df3-4257-86a2-84d550961755`: **allow**, -24000 minor
+  over 24 months. MetroNest `ana_35b42cfd-b680-42dc-a340-2ff89c63c2e1`: **review**,
+  incomplete totals remain null.
+- Evidence explorer displayed quote/document status and source authenticity
+  **Not checked**; trace displayed eight stages, live SERV timing and labelled
+  demo-fixture offer extraction.
+- Scenario API returned `notPersisted: true`; relaxing the term limit removed
+  `MAX_CONTRACT_MONTHS`, but the explicit discount exclusion remained binding.
+- Consent page displayed current binding, cost model `tco-1.1.0` and a 24-hour
+  window. Consent was recorded as `appr_2ad0d04b-5dbd-494d-b31d-bad5d02bb8a7`.
+- Execution `exec_b406eece-5fc3-4a45-9308-f08201439a2e`: capped session → simulated
+  approval → **simulated 0.05 USDC execution**. No real transaction, funds
+  movement, or provider activation is claimed.
+- Receipt `rcpt_a2514c73-21b6-4b8f-aafa-323a32829eda` verified via the read-only
+  **GET** `/api/receipts/{id}/verify`: format, current hash, linked analysis,
+  chain and actual stage ancestry all passed; `verified: true`.
+- Duplicate execute returned `409 EXECUTION_ALREADY_SUBMITTED`. Consent attempts
+  against both block and review analyses returned `409 HARD_CONSTRAINT_VIOLATION`.
+- `/app/benchmark` displayed engine-only 30/30 results with 11/11 and 599/603
+  denominators and the SERV **Not measured** panel. `/app/integrations` displayed
+  the eight-phase conceptual flow. Both pages had no recorded console errors.
+
+Two copy corrections from this pass: the conceptual walkthrough now uses the
+implemented **GET** receipt-verification method; rejection/request-changes copy
+correctly promises a decision record and audit event, not an approval receipt.
 
 ## 2026-11-12 — monetary reconciliation, verification surfaces, scenario sandbox
 

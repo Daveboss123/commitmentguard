@@ -328,9 +328,9 @@ export function ConsentForm({
             Refusal is a valid outcome
           </div>
           <p className="mt-1.5 text-[11px] leading-5 text-ink-muted">
-            Rejecting or requesting changes also writes a decision record and a
-            receipt-stage approval entry. Nothing is paid, and no provider is
-            contacted.
+            Rejecting or requesting changes writes a decision record and audit
+            event. An approval-stage receipt is appended only when consent is
+            approved. Nothing is paid, and no provider is contacted.
           </p>
         </div>
       </div>

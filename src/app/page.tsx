@@ -92,11 +92,10 @@ export default function LandingPage() {
         <section className="paper-grid border-b border-line">
           <div className="mx-auto grid max-w-[1180px] gap-10 px-5 pb-14 pt-12 sm:px-8 lg:grid-cols-[1.05fr_0.95fr] lg:gap-14 lg:pb-20 lg:pt-16">
             <div className="max-w-[620px]">
-              <div className="inline-flex items-center gap-2 rounded-full border border-line bg-raised px-3 py-1 text-[12px] text-ink-muted">
-                <span className="size-1.5 rounded-full bg-accent" />
-                Commitment consequence engine for household agents
+              <div className="border-l-2 border-accent pl-3 text-[13px] leading-5 text-ink-muted">
+                Enforcement before an autonomous agent commits
               </div>
-              <h1 className="mt-6 font-display text-[46px] leading-[0.98] tracking-[-0.03em] text-ink sm:text-[62px]">
+              <h1 className="mt-6 max-w-[12ch] font-display text-[clamp(2.75rem,7vw,4.5rem)] leading-[0.98] tracking-[-0.03em] text-ink">
                 Understand the consequence before you consent.
               </h1>
               <p className="mt-5 max-w-[58ch] text-[16px] leading-7 text-ink-muted">
@@ -119,20 +118,20 @@ export default function LandingPage() {
               </p>
 
               <dl className="mt-10 grid grid-cols-2 gap-x-6 gap-y-5 border-t border-line pt-6 sm:grid-cols-4">
-                {[
-                  ["30", "hand-authored cases"],
-                  [formatPercent(benchmark.metrics.decisionAccuracy), "decision accuracy"],
-                  [formatPercent(benchmark.metrics.hardConstraintBlockRate), "hard-constraint block rate"],
-                  [formatPercent(benchmark.metrics.falseBlockRate), "false blocks"],
-                ].map(([value, label]) => (
-                  <div key={label}>
-                    <dt className="text-[11px] leading-4 text-ink-faint">{label}</dt>
-                    <dd className="mt-1 font-display text-[24px] leading-none text-ink">
-                      {value}
-                    </dd>
-                  </div>
-                ))}
+                 {[
+                   { value: "30/30", label: "engine cases passed", detail: "fixed fixtures" },
+                   { value: formatPercent(benchmark.metrics.decisionAccuracy), label: "decision accuracy", detail: `${benchmark.ratios.decisionAccuracy.numerator}/${benchmark.ratios.decisionAccuracy.denominator}` },
+                   { value: formatPercent(benchmark.metrics.hardConstraintBlockRate), label: "hard-constraint block rate", detail: `${benchmark.ratios.hardConstraintBlockRate.numerator}/${benchmark.ratios.hardConstraintBlockRate.denominator}` },
+                   { value: formatPercent(benchmark.metrics.falseBlockRate), label: "false-block rate", detail: `${benchmark.ratios.falseBlockRate.numerator}/${benchmark.ratios.falseBlockRate.denominator}` },
+                 ].map((metric) => (
+                   <div key={metric.label}>
+                     <dt className="text-[12px] leading-4 text-ink-muted">{metric.label}</dt>
+                     <dd className="mt-2 font-mono-num text-[23px] leading-none text-ink">{metric.value}</dd>
+                     <dd className="mt-1 font-mono-num text-[10px] text-ink-faint">{metric.detail}</dd>
+                   </div>
+                 ))}
               </dl>
+              <p className="mt-4 text-[11px] leading-5 text-ink-faint">Deterministic engine benchmark only. SERV extraction quality is not measured.</p>
             </div>
 
             <div id="decision-record" className="lg:pt-2">
@@ -253,7 +252,7 @@ export default function LandingPage() {
 
         <section id="how-it-works" className="mx-auto max-w-[1180px] px-5 py-16 sm:px-8 lg:py-20">
           <div className="max-w-[680px]">
-            <div className="text-[12px] font-medium text-accent">How it works</div>
+              <div className="text-[13px] text-ink-muted">How it works</div>
             <h2 className="mt-3 font-display text-[36px] leading-[1.05] tracking-[-0.02em] text-ink sm:text-[42px]">
               The assistant proposes. The engine decides.
             </h2>
@@ -302,7 +301,7 @@ export default function LandingPage() {
         <section className="border-y border-line bg-surface">
           <div className="mx-auto grid max-w-[1180px] gap-10 px-5 py-16 sm:px-8 lg:grid-cols-[1.1fr_0.9fr] lg:py-20">
             <div>
-              <div className="text-[12px] font-medium text-accent">The consequence gap</div>
+              <div className="text-[13px] text-ink-muted">The consequence gap</div>
               <h2 className="mt-3 font-display text-[34px] leading-[1.05] tracking-[-0.02em] text-ink sm:text-[40px]">
                 $30 a month can cost {delta24AbsLabel} more over 24 months.
               </h2>
@@ -317,14 +316,15 @@ export default function LandingPage() {
                 conflicts with the household&apos;s 12-month limit.
               </p>
 
-              <div className="mt-7 overflow-hidden rounded-xl border border-line bg-raised">
-                <table className="w-full text-left text-[13px]">
+              <div className="mt-7 overflow-x-auto rounded-xl border border-line bg-raised" role="region" aria-label="Current and proposed household cost comparison" tabIndex={0}>
+                <table className="w-full min-w-[560px] text-left text-[13px]">
+                  <caption className="sr-only">Current household compared with Offer A over 12 and 24 months</caption>
                   <thead className="border-b border-line bg-paper text-[11px] text-ink-faint">
                     <tr>
-                      <th className="px-4 py-2.5 font-medium">Cost over the term</th>
-                      <th className="px-4 py-2.5 text-right font-medium">Current</th>
-                      <th className="px-4 py-2.5 text-right font-medium">Offer A</th>
-                      <th className="px-4 py-2.5 text-right font-medium">Difference</th>
+                       <th scope="col" className="px-4 py-2.5 font-medium">Cost over the term</th>
+                       <th scope="col" className="px-4 py-2.5 text-right font-medium">Current</th>
+                       <th scope="col" className="px-4 py-2.5 text-right font-medium">Offer A</th>
+                       <th scope="col" className="px-4 py-2.5 text-right font-medium">Difference</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-line">
@@ -437,9 +437,9 @@ export default function LandingPage() {
         <section className="mx-auto max-w-[1180px] px-5 py-16 sm:px-8 lg:py-20">
           <div className="grid gap-10 lg:grid-cols-[0.9fr_1.1fr]">
             <div>
-              <div className="text-[12px] font-medium text-accent">Evidence, not vibes</div>
+               <div className="text-[13px] text-ink-muted">Evidence, not vibes</div>
               <h2 className="mt-3 font-display text-[34px] leading-[1.05] tracking-[-0.02em] text-ink sm:text-[40px]">
-                Every material fact carries its own receipt.
+                 Every material fact points back to its source.
               </h2>
               <p className="mt-4 max-w-[54ch] text-[14px] leading-6 text-ink-muted">
                 If a quote is not in the source document, the fact is not verified.
@@ -452,13 +452,12 @@ export default function LandingPage() {
                   <Check className="size-4 text-accent" />
                   Evidence quote validity
                 </div>
-                <div className="mt-2 font-display text-[30px] leading-none text-ink">
-                  {formatPercent(benchmark.metrics.evidenceQuoteValidity)}
-                </div>
-                <div className="mt-1 text-[11px] leading-4 text-ink-faint">
-                  {benchmark.metrics.totalCases} benchmark cases. One intentionally
-                  corrupted quote is caught, not excused.
-                </div>
+                <div className="mt-2 font-mono-num text-[28px] leading-none text-ink">
+                   {formatPercent(benchmark.metrics.evidenceQuoteValidity)}
+                 </div>
+                 <div className="mt-2 text-[12px] leading-5 text-ink-muted">
+                   {benchmark.ratios.evidenceQuoteValidity.numerator}/{benchmark.ratios.evidenceQuoteValidity.denominator} quotes located. Four deliberately corrupted quotes are rejected, which is the correct result.
+                 </div>
               </div>
             </div>
 
@@ -495,7 +494,7 @@ export default function LandingPage() {
           <div className="mx-auto max-w-[1180px] px-5 py-16 sm:px-8 lg:py-20">
             <div className="flex flex-wrap items-end justify-between gap-5">
               <div className="max-w-[620px]">
-                <div className="text-[12px] font-medium text-accent">Measured, not asserted</div>
+                <div className="text-[13px] text-ink-muted">Measured, not asserted</div>
                 <h2 className="mt-3 font-display text-[34px] leading-[1.05] tracking-[-0.02em] text-ink sm:text-[40px]">
                   30 fixed cases. Two weaker baselines. The same engine.
                 </h2>
@@ -580,7 +579,7 @@ export default function LandingPage() {
         <section className="mx-auto max-w-[1180px] px-5 py-16 sm:px-8 lg:py-20">
           <div className="grid gap-10 lg:grid-cols-2">
             <div>
-              <div className="text-[12px] font-medium text-accent">Fail closed</div>
+               <div className="text-[13px] text-ink-muted">Fail closed</div>
               <h2 className="mt-3 font-display text-[34px] leading-[1.05] tracking-[-0.02em] text-ink sm:text-[40px]">
                 The safe answer is often “no”.
               </h2>

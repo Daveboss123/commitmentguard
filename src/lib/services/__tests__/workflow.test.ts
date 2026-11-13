@@ -382,6 +382,31 @@ describe("kite payment execution", () => {
 });
 
 describe("scenario sandbox", () => {
+  it("previews an offer price change invalidating recorded consent without persisting it", async () => {
+    const { created, approval } = await approveCompliantOffer();
+    const before = await getDatabase();
+    const counts = [before.offers.length, before.analyses.length, before.approvals.length, before.receipts.length];
+
+    const evaluation = await runAnalysisScenario(created.analysis.id, {
+      offerMonthlyPriceMinor: 6_000,
+    });
+
+    expect(evaluation.approvalBinding).toMatchObject({
+      approvalId: approval.approval.id,
+      recordedHash: created.analysis.inputHash,
+      wouldBeStale: true,
+      changedOfferVersion: created.analysis.offerVersion + 1,
+    });
+    expect(evaluation.approvalBinding?.scenarioHash).not.toBe(created.analysis.inputHash);
+    expect(evaluation.scenario.decision).toBe("block");
+    expect(evaluation.scenario.evidenceValid).toBe(evaluation.scenario.evidenceTotal);
+    expect(evaluation.appliedOverrides.map((item) => item.field)).toContain("offerMonthlyPriceMinor");
+
+    const after = await getDatabase();
+    expect([after.offers.length, after.analyses.length, after.approvals.length, after.receipts.length]).toEqual(counts);
+    expect(after.offers.find((item) => item.id === created.analysis.offerId)?.offerVersion).toBe(created.analysis.offerVersion);
+  });
+
   it("re-runs the engine without persisting anything", async () => {
     const created = await analyse("offer_brightwave_a");
     expect(created.analysis.decision).toBe("block");

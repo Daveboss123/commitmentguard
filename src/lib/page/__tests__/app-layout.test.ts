@@ -20,5 +20,5 @@ it("stacks the app shell on mobile and reserves the horizontal layout for deskto
   expect(shellClasses).toContain("flex-col");
   expect(shellClasses).toContain("lg:flex-row");
   // Wide child content must not force the main flex item beyond the viewport.
-  expect(html).toMatch(/<main class="[^"]*min-w-0/);
+  expect(html).toMatch(/<main[^>]*class="[^"]*min-w-0/);
 });

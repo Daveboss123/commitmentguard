@@ -16,6 +16,7 @@ import type {
 } from "@/lib/domain/scenario";
 import { buildAnalysis } from "@/lib/domain/decision";
 import { formatMoneyMinor } from "@/lib/domain/money";
+import { sourceVersionHash } from "@/lib/domain/evidence";
 import { mutateDatabase, getDatabase } from "@/lib/store/database";
 import {
   appendAudit,
@@ -396,6 +397,7 @@ export function toScenarioOutcome(analysis: Analysis): ScenarioOutcome {
         severity: reason.severity,
       })),
     costModel: analysis.totals.current12.calculationVersion ?? "unrecorded",
+    inputHash: analysis.inputHash,
   };
 }
 
@@ -463,10 +465,43 @@ export async function runAnalysisScenario(
         ? (policy.maxOneTimeFeeMinor ?? null)
         : overrides.maxOneTimeFeeMinor,
   };
+  let scenarioDocuments = documents;
+  let scenarioEvidence = offer.evidence;
+  let scenarioFacts = offer.facts;
+  const scenarioPrice = overrides.offerMonthlyPriceMinor;
+  const offerPriceChanged = scenarioPrice !== undefined;
+  if (offerPriceChanged && offer.rawDocumentId) {
+    const oldPrice = formatMoneyMinor(offer.terms.standardMonthlyPriceMinor, intent.currency);
+    const newPrice = formatMoneyMinor(overrides.offerMonthlyPriceMinor, intent.currency);
+    const relevant = new Set(["promotionalMonthlyPriceMinor", "standardMonthlyPriceMinor"]);
+    const oldDocument = documents.find((item) => item.id === offer.rawDocumentId);
+    if (oldDocument) {
+      let text = oldDocument.text;
+      for (const item of offer.evidence.filter((entry) => relevant.has(entry.normalizedField ?? ""))) {
+        text = text.replace(item.quote, item.quote.replaceAll(oldPrice, newPrice));
+      }
+      const hash = sourceVersionHash(text);
+      scenarioDocuments = documents.map((item) => item.id === oldDocument.id ? { ...item, text, sourceVersionHash: hash } : item);
+      scenarioEvidence = offer.evidence.map((item) => ({
+        ...item,
+        sourceVersionHash: item.documentId === oldDocument.id ? hash : item.sourceVersionHash,
+        ...(relevant.has(item.normalizedField ?? "") ? {
+          quote: item.quote.replaceAll(oldPrice, newPrice),
+          normalizedValue: scenarioPrice!,
+        } : {}),
+      }));
+      scenarioFacts = offer.facts.map((item) => relevant.has(item.field) ? { ...item, value: scenarioPrice! } : item);
+    }
+  }
   const scenarioOffer: Offer = {
     ...offer,
+    offerVersion: offer.offerVersion + (offerPriceChanged ? 1 : 0),
+    evidence: scenarioEvidence,
+    facts: scenarioFacts,
     terms: {
       ...offer.terms,
+      promotionalMonthlyPriceMinor: offerPriceChanged ? scenarioPrice! : offer.terms.promotionalMonthlyPriceMinor,
+      standardMonthlyPriceMinor: offerPriceChanged ? scenarioPrice! : offer.terms.standardMonthlyPriceMinor,
       familyBundleDiscountRetained:
         overrides.retainFamilyDiscount === undefined ||
         overrides.retainFamilyDiscount === null
@@ -484,7 +519,7 @@ export async function runAnalysisScenario(
     benefits,
     dependencies,
     currentEvidence,
-    documents,
+    documents: scenarioDocuments,
   });
 
   const currency = intent.currency;
@@ -538,17 +573,37 @@ export async function runAnalysisScenario(
       after: overrides.retainFamilyDiscount ? "retained" : "lost",
     });
   }
+  if (overrides.offerMonthlyPriceMinor !== undefined) {
+    appliedOverrides.push({
+      field: "offerMonthlyPriceMinor",
+      label: "Provider monthly price (hypothetical new offer version)",
+      before: formatMoneyMinor(offer.terms.standardMonthlyPriceMinor, currency),
+      after: formatMoneyMinor(overrides.offerMonthlyPriceMinor, currency),
+    });
+  }
+
+  const scenario = toScenarioOutcome(rebuilt);
+  const approval = database.approvals
+    .filter((item) => item.analysisId === analysis.id && item.decision === "approve")
+    .sort((left, right) => right.createdAt.localeCompare(left.createdAt))[0] ?? null;
 
   return {
     label: "Hypothetical scenario",
     disclaimer:
       "Not saved, not sent to SERV, and never an approval basis. The stored analysis and any approval remain bound to the real ledger and offer version.",
     base: toScenarioOutcome(analysis),
-    scenario: toScenarioOutcome(rebuilt),
+    scenario,
     appliedOverrides,
     notPersisted: true,
     retentionLockedByExclusion: offer.terms.excludedBenefits.some(
       (item) => item.key === "family_mobile_bundle_discount",
     ),
+    approvalBinding: approval ? {
+      approvalId: approval.id,
+      recordedHash: approval.analysisHash,
+      scenarioHash: scenario.inputHash,
+      wouldBeStale: approval.analysisHash !== scenario.inputHash,
+      changedOfferVersion: scenarioOffer.offerVersion,
+    } : null,
   };
 }

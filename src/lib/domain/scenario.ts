@@ -11,6 +11,7 @@ export interface ScenarioOverrides {
   minimumMonthlySavingMinor?: number | null;
   maxOneTimeFeeMinor?: number | null;
   retainFamilyDiscount?: boolean | null;
+  offerMonthlyPriceMinor?: number;
 }
 
 export interface ScenarioOutcome {
@@ -27,6 +28,7 @@ export interface ScenarioOutcome {
   reasonCodes: string[];
   blockers: Array<{ code: string; title: string; severity: Severity }>;
   costModel: string;
+  inputHash: string;
 }
 
 export interface ScenarioEvaluation {
@@ -46,4 +48,11 @@ export interface ScenarioEvaluation {
    * An explicit exclusion wins over a hypothetical retention flag.
    */
   retentionLockedByExclusion: boolean;
+  approvalBinding: {
+    approvalId: string;
+    recordedHash: string;
+    scenarioHash: string;
+    wouldBeStale: boolean;
+    changedOfferVersion: number;
+  } | null;
 }

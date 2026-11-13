@@ -13,7 +13,6 @@ import {
 } from "lucide-react";
 import {
   Badge,
-  DecisionBadge,
   Dot,
   EmptyState,
   InlineNotice,
@@ -22,13 +21,14 @@ import {
   Panel,
   PanelHeader,
   Stat,
+  StatsRow,
 } from "@/components/ui";
 import { ButtonLink } from "@/components/button";
+import { AnalysisHistory } from "@/components/analysis-history";
 import { getPageContext } from "@/lib/page/context";
 import {
   currentMonthlyCostMinor,
   getHouseholdData,
-  monthlyRecurringMinor,
 } from "@/lib/page/data";
 import { formatDate, formatDateTime, humanize, serviceLabel } from "@/lib/format";
 import { getKiteStatus } from "@/lib/services/execution.service";
@@ -51,18 +51,13 @@ export default async function DashboardPage() {
   const kite = kiteResult.status === "fulfilled" ? kiteResult.value : null;
 
   const monthlyAverage = currentMonthlyCostMinor(data);
-  const grossMonthly = monthlyRecurringMinor(data);
-  const benefitMonthly = data.benefits
-    .filter((item) => item.status === "active" && item.billingPeriod === "monthly")
-    .reduce((sum, item) => sum + (item.valueMinor ?? 0), 0);
 
   const latestPerOffer = data.offers
     .map((offer) => data.analyses.find((analysis) => analysis.offerId === offer.id))
     .filter((analysis): analysis is NonNullable<typeof analysis> => Boolean(analysis));
 
-  const savingsUnderReviewMinor = latestPerOffer
-    .filter((analysis) => analysis.decision !== "block")
-    .reduce((sum, analysis) => sum + Math.max(analysis.totals.savings12Minor ?? 0, 0), 0);
+  const blockedOffers = latestPerOffer.filter((analysis) => analysis.decision === "block").length;
+  const reviewOffers = latestPerOffer.filter((analysis) => analysis.decision === "review").length;
 
   const recentDecisions = data.analyses.slice(0, 5);
   const commitments = data.commitments.filter((item) => item.status === "active");
@@ -81,9 +76,6 @@ export default async function DashboardPage() {
     .sort((left, right) => left.date.localeCompare(right.date))
     .slice(0, 4);
 
-  const activeAnalyses = data.analyses.filter(
-    (analysis) => analysis.status === "completed",
-  );
 
   return (
     <div>
@@ -105,44 +97,25 @@ export default async function DashboardPage() {
         }
       />
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <Panel className="overflow-hidden">
-          <Stat
-            label="Monthly household cost"
-            value={<Money minor={monthlyAverage} />}
-            detail={
-              benefitMonthly > 0
-                ? `Net of ${benefitMonthly / 100} ${data.policy?.currency ?? "USD"} in retained benefits`
-                : "Average over the next 12 months"
-            }
-          />
-        </Panel>
-        <Panel className="overflow-hidden">
-          <Stat
-            label="Gross recurring charges"
-            value={<Money minor={grossMonthly + benefitMonthly} />}
-            detail={`${commitments.length} active commitment${commitments.length === 1 ? "" : "s"}`}
-          />
-        </Panel>
-        <Panel className="overflow-hidden">
-          <Stat
-            label="Potential savings under review"
-            value={<Money minor={savingsUnderReviewMinor} />}
-            detail="Offers that are not blocked, before any approval"
-            tone="accent"
-          />
-        </Panel>
-        <Panel className="overflow-hidden">
-          <Stat
-            label="Completed analyses"
-            value={activeAnalyses.length}
-            detail={`${data.approvals.filter((item) => item.decision === "approve").length} recorded approval${data.approvals.length === 1 ? "" : "s"}`}
-          />
-        </Panel>
-      </div>
+      <StatsRow>
+        <Stat label="Monthly baseline" value={<Money minor={monthlyAverage} currency={household.defaultCurrency} />} detail="Whole household, after benefits" />
+        <Stat label="Active commitments" value={commitments.length} detail="The ledger the agent must respect" />
+        <Stat label="Blocked offers" value={blockedOffers} detail="Latest decision per offer" tone="danger" />
+        <Stat label="Needs review" value={reviewOffers} detail="Latest decision per offer" tone="caution" />
+      </StatsRow>
 
       <div className="mt-6 grid grid-cols-1 gap-6 xl:grid-cols-[1.35fr_0.65fr]">
         <div className="min-w-0 space-y-6">
+          <Panel>
+            <PanelHeader
+              title="Recent decisions"
+              description="The proposal, the verdict, and the full household cost. Consent and execution remain separate steps."
+              action={<Link href="/app/analyses" className="inline-flex min-h-11 items-center text-[13px] font-medium text-accent">All analyses</Link>}
+            />
+            {recentDecisions.length > 0 ? <AnalysisHistory analyses={recentDecisions} data={data} /> : (
+              <EmptyState icon={<GitCompareArrows className="size-4" />} title="No analyses yet" description="Confirm a request, then let the engine evaluate each illustrative offer." action={<ButtonLink href="/app/compare">Start a comparison</ButtonLink>} />
+            )}
+          </Panel>
           <Panel>
             <PanelHeader
               title="Household commitments"
@@ -237,90 +210,6 @@ export default async function DashboardPage() {
             </ul>
           </Panel>
 
-          <Panel>
-            <PanelHeader
-              title="Analyses"
-              description="Every completed run against the current ledger. An old analysis is never rewritten by a new result."
-              action={
-                <Link
-                  href="/app/analyses"
-                  className="inline-flex items-center gap-1.5 text-[12px] font-medium text-accent hover:text-accent-strong"
-                >
-                  All analyses
-                  <ArrowRight className="size-3.5" />
-                </Link>
-              }
-            />
-            {recentDecisions.length === 0 ? (
-              <EmptyState
-                icon={<GitCompareArrows className="size-4" />}
-                title="No analyses yet"
-                description="Start a comparison to extract the household constraints with SERV and run the deterministic engine against the three illustrative offers."
-                action={
-                  <ButtonLink href="/app/compare" variant="secondary">
-                    Start the demo comparison
-                  </ButtonLink>
-                }
-              />
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full min-w-[620px] text-left text-[12px]">
-                  <thead className="border-b border-line bg-surface text-[11px] text-ink-faint">
-                    <tr>
-                      <th className="px-5 py-2.5 font-medium">Offer</th>
-                      <th className="px-5 py-2.5 font-medium">Decision</th>
-                      <th className="px-5 py-2.5 text-right font-medium">12-month saving</th>
-                      <th className="px-5 py-2.5 font-medium">Evidence</th>
-                      <th className="px-5 py-2.5 font-medium">Run</th>
-                      <th className="px-5 py-2.5" />
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-line">
-                    {recentDecisions.map((analysis) => {
-                      const offer = data.offers.find(
-                        (item) => item.id === analysis.offerId,
-                      );
-                      return (
-                        <tr key={analysis.id} className="hover:bg-surface">
-                          <td className="px-5 py-3">
-                            <div className="font-medium text-ink">
-                              {offer?.providerName ?? "Offer"}
-                            </div>
-                            <div className="text-[11px] text-ink-faint">
-                              {offer?.planName ?? analysis.offerId}
-                            </div>
-                          </td>
-                          <td className="px-5 py-3">
-                            <DecisionBadge decision={analysis.decision} />
-                          </td>
-                          <td className="px-5 py-3 text-right">
-                            <Money minor={analysis.totals.savings12Minor} />
-                          </td>
-                          <td className="px-5 py-3">
-                            <span className="font-mono-num text-[11px] text-ink-muted">
-                              {analysis.evidenceValidation.valid}/
-                              {analysis.evidenceValidation.total} valid
-                            </span>
-                          </td>
-                          <td className="px-5 py-3 text-[11px] text-ink-faint">
-                            {formatDate(analysis.createdAt)}
-                          </td>
-                          <td className="px-5 py-3 text-right">
-                            <Link
-                              href={`/app/analyses/${analysis.id}`}
-                              className="text-[11px] font-medium text-accent hover:text-accent-strong"
-                            >
-                              Open
-                            </Link>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </Panel>
         </div>
 
         <div className="min-w-0 space-y-6">

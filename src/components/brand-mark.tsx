@@ -30,6 +30,7 @@ export function BrandMark({
           fill="none"
           aria-hidden="true"
           className={size === "default" ? "size-[18px]" : "size-[22px]"}
+          focusable="false"
         >
           <path
             d="M12 3.25 19 6v5.2c0 4.3-2.8 7.9-7 9.55-4.2-1.65-7-5.25-7-9.55V6l7-2.75Z"

@@ -3,6 +3,48 @@
 Verification log and submission state for the SERV Hackathon 02 build.
 Last updated: **2026-11-13**.
 
+## 2026-11-13 — pre-video interface refinement and plan audit
+
+An item-by-item audit is published in [BUILD_PLAN_STATUS.md](BUILD_PLAN_STATUS.md).
+The build does **not** claim the entire source plan is complete: a scored live
+SERV extraction benchmark and full mocked SERV failure harness remain. Rate
+limiting, production identity/tenant isolation and signed receipts remain
+production-hardening limitations.
+
+This UI pass used the existing decision-casefile direction rather than applying
+a wholesale redesign:
+
+- Dashboard and analyses now use responsive decision records: cards on narrow
+  containers, compact accessible tables on larger containers. The proposal,
+  verdict, whole-household total, delta, evidence and material unknowns scan in
+  one record; consent and simulated execution remain secondary states.
+- Stat cards became one ledger-style summary band. Panel primitives now have
+  `min-w-0`, headings use fluid type, primary controls meet a 44 px target, and
+  low-emphasis text was darkened for better contrast.
+- Cost arithmetic switches to readable mobile line-item cards with source links.
+  Evidence rows now show the extracted value first, use plain-language origin
+  metadata, improve mobile wrapping, and keep quote/hash/authenticity/currentness
+  as distinct claims. The reasoning trace has clearer numbered stages and
+  disclosure affordances.
+- The mobile drawer now has dialog semantics, Escape dismissal, focus entry and
+  focus return; the app layout has a skip link and scroll padding for sticky UI.
+- The landing hero is more explicitly an enforcement layer for autonomous
+  agents. Every hero benchmark percentage now has a visible denominator and an
+  engine-only/SERV-not-measured note. Evidence copy now correctly says **599/603**
+  quotes located and four deliberately corrupted quotes rejected.
+- The scenario sandbox now accepts a hypothetical provider price. It creates a
+  non-persistent offer v+1, updates its synthetic source/evidence, re-runs the
+  real engine, compares canonical hashes and shows `APPROVAL_STALE` when recorded
+  consent would no longer match. No stored offer, approval, receipt or payment is
+  changed.
+- Added responsive-component and offer-change regression coverage. **42/42 tests
+  across 7 files** pass before the production build.
+- Local Chromium checks covered 375, 800 and 1440 px, mobile cost/evidence
+  disclosures, stale-consent preview, and drawer focus/Escape behavior. Mobile
+  Lighthouse snapshot scored **100 accessibility**, **100 best practices**, **100
+  SEO** and **100 agentic browsing**, with 34 audits passed and none failed. The
+  production build completed cleanly.
+
 ## 2026-11-13 — responsive app-shell correction
 
 The reported narrow-screen layout was caused by the app shell using `flex`

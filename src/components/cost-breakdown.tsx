@@ -1,5 +1,6 @@
 import type { TcoResult } from "@/lib/domain/types";
 import { Badge, Money, Panel, PanelHeader } from "./ui";
+import { ChevronDown } from "lucide-react";
 
 function periodLabel(tco: TcoResult, line: TcoResult["lines"][number]): string {
   if (line.frequency === "one_off") return "one-off";
@@ -62,21 +63,35 @@ export function CostBreakdown({
       </div>
 
       <details open={defaultOpen} className="group">
-        <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-5 py-3 text-[11px] font-medium text-accent hover:text-accent-strong">
-          <span>{defaultOpen ? "Line items" : "Show the arithmetic for every line"}</span>
-          <span className="font-mono-num text-[10px] text-ink-faint group-open:hidden">
-            {included.length} lines
+        <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 px-5 py-3 text-[13px] font-medium text-accent hover:text-accent-strong">
+          <span>{defaultOpen ? "Line items" : "Show every calculation"}</span>
+          <span className="flex items-center gap-2 font-mono-num text-[11px] text-ink-faint">
+            {included.length} lines <ChevronDown className="size-4 transition-transform group-open:rotate-180" aria-hidden="true" />
           </span>
         </summary>
 
-        <div className="overflow-x-auto border-t border-line">
+        <div className="@container border-t border-line">
+          <ul className="divide-y divide-line @min-[38rem]:hidden">
+            {included.map((line) => (
+              <li key={line.id} className="px-5 py-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div><p className="text-[13px] font-medium text-ink">{line.label}</p><p className="mt-1 text-[11px] text-ink-muted">{periodLabel(tco, line)}</p></div>
+                  <span className={line.direction === "saving" ? "font-mono-num text-ok" : "font-mono-num text-ink"}><Money minor={line.subtotalMinor} currency={line.currency} /></span>
+                </div>
+                <p className="mt-2 text-[12px] leading-5 text-ink-muted">{line.calculationExplanation}</p>
+                {line.sourceEvidenceId ? <a href={`#evidence-${line.sourceEvidenceId}`} className="mt-2 inline-flex min-h-11 items-center text-[11px] text-accent">Open source fact</a> : <p className="mt-2 text-[11px] text-ink-faint">No document evidence attached</p>}
+              </li>
+            ))}
+          </ul>
+          <div className="hidden overflow-x-auto @min-[38rem]:block">
           <table className="w-full min-w-[620px] text-left text-[12px]">
+            <caption className="sr-only">Cost lines and the arithmetic that produces this total</caption>
             <thead className="bg-surface text-[10px] text-ink-faint">
               <tr>
-                <th className="px-5 py-2 font-medium">Line item</th>
-                <th className="px-3 py-2 font-medium">Period</th>
-                <th className="px-3 py-2 font-medium">Arithmetic</th>
-                <th className="px-5 py-2 text-right font-medium">Amount</th>
+                <th scope="col" className="px-5 py-2 font-medium">Line item</th>
+                <th scope="col" className="px-3 py-2 font-medium">Period</th>
+                <th scope="col" className="px-3 py-2 font-medium">Arithmetic</th>
+                <th scope="col" className="px-5 py-2 text-right font-medium">Amount</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-line">
@@ -84,7 +99,7 @@ export function CostBreakdown({
                 <tr key={line.id} className="align-top">
                   <td className="px-5 py-2.5">
                     <div className="text-ink">{line.label}</div>
-                    <div className="mt-0.5 font-mono-num text-[9px] text-ink-faint">
+                    <div className="mt-0.5 font-mono-num text-[10px] text-ink-faint">
                       {line.id}
                       {line.sourceEvidenceId ? ` · ${line.sourceEvidenceId}` : ""}
                     </div>
@@ -126,6 +141,7 @@ export function CostBreakdown({
               </tr>
             </tfoot>
           </table>
+          </div>
         </div>
 
         {tco.missingFields.length > 0 ? (

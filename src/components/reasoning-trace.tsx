@@ -1,5 +1,6 @@
 import type { ReasoningTrace, TraceStageStatus } from "@/lib/domain/trace";
 import { Badge, Panel, PanelHeader } from "./ui";
+import { Check, ChevronDown, CircleAlert } from "lucide-react";
 
 const statusTone: Record<
   TraceStageStatus,
@@ -51,8 +52,8 @@ export function ReasoningTracePanel({ trace }: { trace: ReasoningTrace }) {
         {trace.stages.map((stage, index) => (
           <li key={stage.id}>
             <details className="group">
-              <summary className="flex cursor-pointer list-none items-start gap-3 px-5 py-3 hover:bg-surface">
-                <span className="mt-0.5 font-mono-num text-[10px] text-ink-faint">
+              <summary className="flex cursor-pointer list-none items-start gap-3 px-5 py-4 hover:bg-surface">
+                <span className="flex size-6 shrink-0 items-center justify-center rounded-full border border-line bg-raised font-mono-num text-[10px] text-ink-faint">
                   {String(index + 1).padStart(2, "0")}
                 </span>
                 <span className="min-w-0 flex-1">
@@ -60,7 +61,7 @@ export function ReasoningTracePanel({ trace }: { trace: ReasoningTrace }) {
                     <span className="text-[12px] font-medium text-ink">
                       {stage.label}
                     </span>
-                    <span className="font-mono-num text-[9px] uppercase tracking-wider text-ink-faint">
+                    <span className="font-mono-num text-[10px] text-ink-faint">
                       {sourceLabel(stage.source)}
                     </span>
                   </span>
@@ -75,8 +76,10 @@ export function ReasoningTracePanel({ trace }: { trace: ReasoningTrace }) {
                     </span>
                   ) : null}
                   <Badge tone={statusTone[stage.status]}>
+                    {stage.status === "passed" ? <Check className="size-3" aria-hidden="true" /> : stage.status === "failed" ? <CircleAlert className="size-3" aria-hidden="true" /> : null}
                     {statusLabel[stage.status]}
                   </Badge>
+                  <ChevronDown className="size-4 text-ink-faint transition-transform group-open:rotate-180" aria-hidden="true" />
                 </span>
               </summary>
               <div className="border-t border-line bg-surface px-5 py-3">
@@ -127,8 +130,8 @@ export function ReasoningTracePanel({ trace }: { trace: ReasoningTrace }) {
       </ol>
 
       <details className="group border-t border-line">
-        <summary className="cursor-pointer list-none px-5 py-3 text-[11px] font-medium text-accent hover:text-accent-strong">
-          Failure handling — what happens when SERV or a quote fails
+        <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 px-5 py-3 text-[13px] font-medium text-accent hover:text-accent-strong">
+          <span>Failure handling — what happens when SERV or a quote fails</span><ChevronDown className="size-4 shrink-0 transition-transform group-open:rotate-180" aria-hidden="true" />
         </summary>
         <ul className="divide-y divide-line border-t border-line">
           {trace.failureHandling.map((item) => (

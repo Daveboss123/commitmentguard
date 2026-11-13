@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import clsx from "clsx";
@@ -80,6 +80,7 @@ function NavList({ onNavigate }: { onNavigate?: () => void }) {
                         active ? "text-accent" : "text-ink-faint",
                       )}
                       strokeWidth={1.6}
+                      aria-hidden="true"
                     />
                     {item.label}
                   </Link>
@@ -126,6 +127,24 @@ export function AppNav({
   role: string;
 }) {
   const [open, setOpen] = useState(false);
+  const closeButton = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const previous = document.activeElement as HTMLElement | null;
+    const overflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    closeButton.current?.focus();
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("keydown", onKeyDown);
+      document.body.style.overflow = overflow;
+      previous?.focus();
+    };
+  }, [open]);
 
   return (
     <>
@@ -145,7 +164,7 @@ export function AppNav({
               type="submit"
               className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-[13px] text-ink-muted transition-colors hover:bg-[#f0ece1] hover:text-ink"
             >
-              <LogOut className="size-4 text-ink-faint" strokeWidth={1.6} />
+              <LogOut className="size-4 text-ink-faint" strokeWidth={1.6} aria-hidden="true" />
               Sign out
             </button>
           </form>
@@ -162,7 +181,7 @@ export function AppNav({
           aria-expanded={open}
           aria-controls="mobile-navigation"
         >
-          <Menu className="size-4" />
+          <Menu className="size-4" aria-hidden="true" />
         </button>
       </div>
 
@@ -174,16 +193,17 @@ export function AppNav({
             aria-label="Close navigation"
             onClick={() => setOpen(false)}
           />
-          <div id="mobile-navigation" className="absolute inset-y-0 left-0 flex w-[86%] max-w-[300px] flex-col border-r border-line bg-surface shadow-panel">
+          <div id="mobile-navigation" role="dialog" aria-modal="true" aria-label="Workspace navigation" className="absolute inset-y-0 left-0 flex w-[86%] max-w-[300px] flex-col border-r border-line bg-surface shadow-panel">
             <div className="flex items-center justify-between px-5 py-4">
               <BrandMark href="/app" />
               <button
                 type="button"
+                ref={closeButton}
                 onClick={() => setOpen(false)}
                 className="flex size-11 items-center justify-center rounded-lg border border-line text-ink-muted"
                 aria-label="Close navigation"
               >
-                <X className="size-4" />
+                <X className="size-4" aria-hidden="true" />
               </button>
             </div>
             <HouseholdCard
@@ -198,7 +218,7 @@ export function AppNav({
                   type="submit"
                   className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-[13px] text-ink-muted"
                 >
-                  <LogOut className="size-4 text-ink-faint" strokeWidth={1.6} />
+                  <LogOut className="size-4 text-ink-faint" strokeWidth={1.6} aria-hidden="true" />
                   Sign out
                 </button>
               </form>

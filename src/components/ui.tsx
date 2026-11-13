@@ -26,7 +26,7 @@ export function Badge({
   return (
     <span
       className={clsx(
-        "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[11px] font-medium leading-5",
+        "inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[11px] font-medium leading-5",
         toneClasses[tone],
         className,
       )}
@@ -86,7 +86,7 @@ export function DecisionBadge({
   return (
     <span
       className={clsx(
-        "inline-flex items-center gap-1.5 rounded-[4px] border px-2 py-0.5 text-[11px] font-medium leading-5",
+        "inline-flex shrink-0 items-center gap-1.5 rounded-[4px] border px-2 py-0.5 text-[12px] font-medium leading-5",
         toneClasses[tone],
       )}
     >
@@ -123,7 +123,7 @@ export function Panel({
     <section
       id={id}
       className={clsx(
-        "rounded-panel border border-line",
+        "min-w-0 rounded-panel border border-line",
         tone === "surface" && "bg-surface",
         tone === "plain" && "bg-transparent",
         tone === "raised" && "bg-raised shadow-panel",
@@ -153,7 +153,7 @@ export function PanelHeader({
         className,
       )}
     >
-      <div className="min-w-0">
+      <div className="min-w-0 flex-1 basis-[16rem]">
         <h2 className="text-[15px] font-medium leading-snug tracking-[-0.01em] text-ink">
           {title}
         </h2>
@@ -163,7 +163,7 @@ export function PanelHeader({
           </p>
         ) : null}
       </div>
-      {action}
+        {action}
     </div>
   );
 }
@@ -265,7 +265,7 @@ export function PageHeader({
         {eyebrow ? (
           <div className="mb-2 text-[12px] text-ink-muted">{eyebrow}</div>
         ) : null}
-        <h1 className="font-display text-[34px] leading-[1.08] tracking-[-0.02em] text-ink sm:text-[40px]">
+        <h1 className="font-display text-[clamp(1.75rem,3vw,2.5rem)] leading-[1.12] tracking-[-0.02em] text-ink">
           {title}
         </h1>
         {description ? (
@@ -308,6 +308,17 @@ export function Stat({
         <div className="mt-2 text-[12px] leading-4 text-ink-faint">{detail}</div>
       ) : null}
     </div>
+  );
+}
+
+/** Shared ledger-style summaries, rather than a row of competing cards. */
+export function StatsRow({ children }: { children: ReactNode }) {
+  return (
+    <Panel className="overflow-hidden">
+      <div className="grid grid-cols-2 gap-px bg-line sm:grid-cols-4 [&>*]:bg-surface">
+        {children}
+      </div>
+    </Panel>
   );
 }
 

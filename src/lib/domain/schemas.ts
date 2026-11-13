@@ -137,6 +137,8 @@ export const ScenarioRequestSchema = z
       .optional(),
     /** Hypothetical offer term: would the family discount survive the switch? */
     retainFamilyDiscount: z.boolean().nullable().optional(),
+    /** Hypothetical provider change used to demonstrate stale approval binding. */
+    offerMonthlyPriceMinor: z.number().int().nonnegative().max(10_000_000).optional(),
   })
   .refine((value) => Object.keys(value).length > 0, {
     message: "At least one scenario override is required",

@@ -6,7 +6,7 @@
   --surface-raised: #fffdf7;
   --ink: #19211e;
   --ink-muted: #5d6762;
-  --ink-faint: #7d8781;
+  --ink-faint: #626d67;
   --line: #ddd8ca;
   --line-strong: #c9c2b0;
   --accent: #0f6b5c;
@@ -58,6 +58,7 @@
 
 html {
   scroll-behavior: smooth;
+  scroll-padding-top: 5.5rem;
 }
 
 body {
@@ -117,10 +118,8 @@ textarea {
   background: transparent;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .stamp {
-    /* no motion involved; kept for completeness */
-  }
+@media (min-width: 64rem) {
+  html { scroll-padding-top: 1.5rem; }
 }
 
 .hairline {

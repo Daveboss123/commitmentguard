@@ -22,12 +22,15 @@ export default async function AppLayout({
 
   return (
     <div className="flex min-h-dvh flex-col bg-paper lg:flex-row">
+      <a href="#main-content" className="sr-only z-[60] bg-raised px-4 py-3 text-ink focus:not-sr-only focus:fixed focus:left-3 focus:top-3">
+        Skip to content
+      </a>
       <AppNav
         householdName={household.name}
         memberName={member?.displayName ?? "Household owner"}
         role={member?.role ?? "owner"}
       />
-      <main className="min-w-0 flex-1 px-5 pb-16 pt-8 sm:px-8 lg:px-10 lg:pt-10">
+      <main id="main-content" className="min-w-0 flex-1 px-5 pb-16 pt-8 sm:px-8 lg:px-10 lg:pt-10">
         <div className="mx-auto w-full max-w-[1180px]">{children}</div>
       </main>
     </div>

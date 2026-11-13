@@ -25,6 +25,7 @@ import {
   PanelHeader,
   SeverityBadge,
   Stat,
+  StatsRow,
 } from "@/components/ui";
 import { ButtonLink } from "@/components/button";
 import { CostBreakdown } from "@/components/cost-breakdown";
@@ -219,8 +220,7 @@ export default async function AnalysisDetailPage({
         }
       />
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <Panel className="overflow-hidden">
+      <StatsRow>
           <Stat
             label="Proposed 12-month cost"
             value={
@@ -231,8 +231,6 @@ export default async function AnalysisDetailPage({
             }
             detail={`Current: ${analysis.totals.current12.totalMinor === null ? "unknown" : `$${(analysis.totals.current12.totalMinor / 100).toFixed(2)}`}`}
           />
-        </Panel>
-        <Panel className="overflow-hidden">
           <Stat
             label="12-month difference"
             value={<MoneyDelta minor={analysis.totals.delta12Minor} />}
@@ -249,8 +247,6 @@ export default async function AnalysisDetailPage({
                   : "accent"
             }
           />
-        </Panel>
-        <Panel className="overflow-hidden">
           <Stat
             label="24-month difference"
             value={<MoneyDelta minor={analysis.totals.delta24Minor} />}
@@ -263,8 +259,6 @@ export default async function AnalysisDetailPage({
                   : "accent"
             }
           />
-        </Panel>
-        <Panel className="overflow-hidden">
           <Stat
             label="Evidence validity"
             value={formatPercent(
@@ -280,8 +274,7 @@ export default async function AnalysisDetailPage({
                 : "accent"
             }
           />
-        </Panel>
-      </div>
+      </StatsRow>
 
       <div className="mt-6 grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
         <div className="space-y-6">
@@ -518,6 +511,7 @@ export default async function AnalysisDetailPage({
             sourceTexts={sourceTexts}
             validation={validation}
             now={serverNow()}
+            currency={intent?.currency ?? "USD"}
           />
 
           {analysis.unknowns.length > 0 ? (
@@ -684,6 +678,7 @@ export default async function AnalysisDetailPage({
             maxOneTimeFeeMinor: bundle.policy?.maxOneTimeFeeMinor ?? null,
             familyDiscountRetained:
               offer.terms.familyBundleDiscountRetained ?? null,
+            offerMonthlyPriceMinor: offer.terms.standardMonthlyPriceMinor,
           }}
           base={toScenarioOutcome(analysis)}
           familyDiscountExcluded={offer.terms.excludedBenefits.some(

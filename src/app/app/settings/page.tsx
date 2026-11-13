@@ -182,7 +182,7 @@ export default async function SettingsPage() {
             <div className="px-5 py-4">
               <a
                 href={`/api/households/${household.id}/export`}
-                download="commitmentguard-export.json"
+                download="trycommit-export.json"
                 className="inline-flex w-full items-center justify-center gap-2 rounded-full border border-line-strong bg-raised px-4 py-2 text-[13px] font-medium text-ink hover:border-accent/45 hover:bg-surface"
               >
                 <Download className="size-4" />

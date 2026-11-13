@@ -207,7 +207,7 @@ export async function startExecution(
 
   const adapter = getKiteAdapter();
   const request: KiteSessionRequest = await adapter.createSession({
-    taskSummary: `CommitmentGuard demo checkout — analysis ${verified.analysis.id}`,
+    taskSummary: `trycommit demo checkout — analysis ${verified.analysis.id}`,
     maxTotalUsdc: input.maxTotalUsdc,
     maxPerTxUsdc: input.maxPerTxUsdc,
     ttl: serverConfig.kite.sessionTtl,
@@ -422,7 +422,7 @@ export async function executeApprovedPayment(
     result = await adapter.executePaidRequest({
       requestId: execution.kiteRequestId,
       sessionId: refreshed.kiteSessionId,
-      url: serverConfig.kite.checkoutUrl || "https://demo.invalid/commitmentguard-checkout",
+      url: serverConfig.kite.checkoutUrl || "https://demo.invalid/trycommit-checkout",
       method: "POST",
       body: {
         orderId: `order_${reserved.analysis.id}`,

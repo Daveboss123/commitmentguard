@@ -7,7 +7,7 @@
 > percentage is claimed anywhere. See
 > [SERV extraction — not measured](#serv-extraction--not-measured) below.
 
-CommitmentGuard ships a **30-case hand-authored benchmark** with fixed labels.
+trycommit ships a **30-case hand-authored benchmark** with fixed labels.
 Every number in this document comes from a real run of the shipped runner
 (`src/lib/benchmark/runner.ts`) against the shipped cases
 (`src/lib/benchmark/cases.ts`). Nothing here is estimated or aspirational.
@@ -132,7 +132,7 @@ runner**, not claims about any real product.
 Concretely: both baselines **wave every adversarial offer through** — the
 24-month auto-renewal contract, the lost family bundle, the hidden equipment
 fee, all of it — because those are invisible from the advertised price. The
-same cases CommitmentGuard blocks.
+same cases trycommit blocks.
 
 ---
 

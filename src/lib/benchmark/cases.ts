@@ -140,7 +140,7 @@ function buildCurrentDocument(spec: CaseSpec): {
 
   const lines: string[] = [
     "NORTHLINE DEMO — HOUSEHOLD SERVICE SUMMARY",
-    "Illustrative terms only. Synthetic data for the CommitmentGuard benchmark. Not a real provider contract.",
+    "Illustrative terms only. Synthetic data for the trycommit benchmark. Not a real provider contract.",
     "",
     "Broadband — Home 300",
     `Monthly charge: ${money(BASE_CURRENT_BROADBAND)} per month.`,
@@ -313,7 +313,7 @@ function buildOfferDocument(spec: CaseSpec): OfferDocResult {
   const offer = spec.offer;
   const lines: string[] = [
     `${offer.providerName.toUpperCase()} — ${offer.planName.toUpperCase()}`,
-    "Illustrative terms only. Synthetic offer for the CommitmentGuard benchmark. Not a real provider contract.",
+    "Illustrative terms only. Synthetic offer for the trycommit benchmark. Not a real provider contract.",
     "",
     "Pricing",
   ];

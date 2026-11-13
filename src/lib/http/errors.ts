@@ -93,7 +93,7 @@ export function apiErrorResponse(error: unknown): Response {
     );
   }
 
-  console.error("[commitmentguard] unhandled api error", {
+  console.error("[trycommit] unhandled api error", {
     name: error instanceof Error ? error.name : "unknown",
     message: error instanceof Error ? error.message : "unknown",
   });

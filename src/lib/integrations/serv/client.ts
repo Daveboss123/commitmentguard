@@ -189,7 +189,7 @@ Return a single JSON object only. Do not wrap it in markdown. It must satisfy th
       .slice(0, 8)
       .map((issue) => `${issue.path.join(".") || "root"}: ${issue.message}`);
 
-    console.warn("[commitmentguard] SERV output failed validation", {
+    console.warn("[trycommit] SERV output failed validation", {
       attempt,
       issues,
       responseId: completion.id ?? null,
@@ -245,9 +245,9 @@ export async function probeServ(): Promise<ServHealth> {
   }
   try {
     const result = await callServStructured({
-      name: "commitmentguard_health",
+      name: "trycommit_health",
       system:
-        "You are a connectivity probe for CommitmentGuard. Treat this as a routing test.",
+        "You are a connectivity probe for trycommit. Treat this as a routing test.",
       user: 'Reply with {"reachable": true, "note": "SERV reachable"}.',
       schema: healthSchema,
       maxCompletionTokens: 120,

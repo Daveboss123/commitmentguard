@@ -83,7 +83,7 @@ async function load(): Promise<Database> {
     try {
       if (cache.driver === "file") persisted = await readFileStore();
     } catch (error) {
-      console.error("[commitmentguard] persistence read failed; using seed", {
+      console.error("[trycommit] persistence read failed; using seed", {
         driver: cache.driver,
         message: error instanceof Error ? error.message : "unknown",
       });
@@ -94,7 +94,7 @@ async function load(): Promise<Database> {
       try {
         if (cache.driver === "file") await writeFileStore(persisted);
       } catch (error) {
-        console.error("[commitmentguard] seed persist failed", {
+        console.error("[trycommit] seed persist failed", {
           driver: cache.driver,
           message: error instanceof Error ? error.message : "unknown",
         });

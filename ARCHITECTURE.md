@@ -1,6 +1,6 @@
 # Architecture
 
-CommitmentGuard is a **modular monolith**: one Next.js 16 App Router
+trycommit is a **modular monolith**: one Next.js 16 App Router
 application with strict internal layering. There is no runtime dependency on an
 external database; the repository seam is where SQL (or Postgres) would slot
 in. Every layer below is plain TypeScript with `zod` at the boundaries.

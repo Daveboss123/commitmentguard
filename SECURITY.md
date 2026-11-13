@@ -1,6 +1,6 @@
 # Security
 
-CommitmentGuard is a consent-and-consequence layer for an agent that can spend
+trycommit is a consent-and-consequence layer for an agent that can spend
 money. Its security posture is therefore **refusal-first**: the goal is that
 when the system is unsure, stale, over-budget or compromised, it does nothing
 rather than doing something plausible. This document states the concrete

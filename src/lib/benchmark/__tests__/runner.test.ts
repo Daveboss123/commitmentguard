@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { runBenchmark } from "../runner";
 
-describe("CommitmentGuard benchmark", () => {
+describe("trycommit benchmark", () => {
   const report = runBenchmark();
 
   it("evaluates all 30 hand-authored cases against their labels", () => {

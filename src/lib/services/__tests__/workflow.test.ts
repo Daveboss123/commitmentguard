@@ -14,6 +14,7 @@ import { policy } from "@/lib/fixtures/demo";
 
 import { ApiError } from "@/lib/http/errors";
 import { KiteMockAdapter } from "@/lib/integrations/kite/mock";
+import { hashPayload } from "@/lib/domain/canonical";
 
 /**
  * The services call `requireSession()` to resolve the acting member. In these
@@ -432,6 +433,17 @@ describe("scenario sandbox", () => {
 });
 
 describe("decision receipts", () => {
+  it("issues trycommit receipts while preserving legacy receipt compatibility", async () => {
+    const created = await analyse("offer_harborlink_b");
+    expect(created.receipt.receiptPayload.kind).toBe("trycommit.decision_receipt");
+    const database = await getDatabase();
+    const legacy = structuredClone(created.receipt);
+    legacy.receiptPayload.kind = "commitmentguard.decision_receipt";
+    legacy.contentHash = hashPayload(legacy.receiptPayload);
+    const payloadBefore = JSON.stringify(legacy.receiptPayload);
+    expect(verifyReceipt(database, legacy).verified).toBe(true);
+    expect(JSON.stringify(legacy.receiptPayload)).toBe(payloadBefore);
+  });
   it("verifies the content hash and links each receipt to the previous one", async () => {
     const created = await analyse("offer_harborlink_b");
     const second = await mutateDatabase((database) =>

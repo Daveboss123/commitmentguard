@@ -12,7 +12,7 @@ import { DEMO_HOUSEHOLD_ID, DEMO_USER_ID } from "@/lib/fixtures/demo";
 
 export const metadata: Metadata = {
   title: "Demo sign-in",
-  description: "Enter the CommitmentGuard demo workspace.",
+  description: "Enter the trycommit demo workspace.",
 };
 
 /**

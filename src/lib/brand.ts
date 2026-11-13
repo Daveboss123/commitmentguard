@@ -3,8 +3,8 @@
  * replaceable place so a reskin does not touch product logic.
  */
 export const brand = {
-  name: "CommitmentGuard",
-  shortName: "CG",
+  name: "trycommit",
+  shortName: "tc",
   tagline: "Understand the consequence before you consent.",
   description:
     "A commitment consequence engine and consent layer for AI assistants that act on a household's behalf.",

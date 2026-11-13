@@ -37,13 +37,20 @@ Code hardening:
   or over-precision amounts are rejected, not converted to a missing limit.
 - `connection()` precedes session-expiry clock reads in page context and login.
   The previously observed local prerender warning is gone (page console checked).
-- Placeholder-brand footer replaced with a synthetic-data build note; product
-  naming remains CommitmentGuard.
+- Placeholder-brand footer replaced with a synthetic-data build note.
+- Public product/package/repository/deployment identity renamed to **trycommit**
+  at the user's request. Existing storage namespaces, benchmark fixture ids and
+  signed cookie identifiers are retained for compatibility. New receipts use
+  `trycommit.decision_receipt`; previously issued receipts still verify under
+  their original kind and hash. No data reset is part of the rename.
 
 Local verification: typecheck clean; lint clean; **37/37 tests across 5 files**;
 production build clean. Added tests cover decimal precision, two-instance reads,
 CAS conflicts, corrupt data, HTTP-200 Redis errors, failed writes, competing
 execute requests, adapter timeouts and disconnected/corrupt receipt ancestors.
+
+After the trycommit rename: all checks re-run clean; **38/38 tests across 5
+files**, including new/legacy receipt-kind compatibility without payload edits.
 
 Production verification for this follow-up is recorded below after deployment.
 
@@ -247,11 +254,11 @@ The suite drives the real seeded repository through the service layer:
 - [x] Product builds clean: typecheck / lint / tests / benchmark / build
 - [x] Docs: README, ARCHITECTURE, INTEGRATIONS, BENCHMARK, SECURITY,
       BUILD_NOTES
-- [x] Public GitHub repo: <https://github.com/Daveboss123/commitmentguard>
+- [x] Public GitHub repo: <https://github.com/Daveboss123/trycommit>
       (initial feature commit `ec688e0`, 142 files; secrets verified absent —
       `.env*`/`/.data/` gitignored, staged diff scanned for key strings)
-- [x] Deployed to Vercel: <https://commitmentguard.vercel.app>
-      (project `commitmentguard`, `prj_pGkAl3doQsqZ96Hmg3l7Ea56kiW5`,
+- [x] Deployed to Vercel: <https://trycommit.vercel.app>
+      (project `trycommit`, `prj_pGkAl3doQsqZ96Hmg3l7Ea56kiW5`,
       production deploy of commit `6f81c6a` with environment variables:
       `KITE_MODE=mock`, `KITE_EXECUTION_MODE=simulated`,
       `KITE_MAX_*_USDC=0.05`, `DEMO_PERSIST=false`, `SERV_API_KEY` and a

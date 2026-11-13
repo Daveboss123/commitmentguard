@@ -37,7 +37,7 @@ export function appendReceipt(
   const now = serverNow();
 
   const payload: Record<string, unknown> = {
-    kind: "commitmentguard.decision_receipt",
+    kind: "trycommit.decision_receipt",
     schemaVersion: 1,
     stage: input.stage,
     householdId: analysis.householdId,
@@ -225,7 +225,8 @@ export function verifyReceipt(
   const computedHash = hashPayload(receipt.receiptPayload);
   const valid = computedHash === receipt.contentHash;
   const payload = receipt.receiptPayload;
-  const formatValid = payload.kind === "commitmentguard.decision_receipt" &&
+  // Previously issued receipts retain their original payload/hash after rename.
+  const formatValid = ["trycommit.decision_receipt", "commitmentguard.decision_receipt"].includes(String(payload.kind)) &&
     payload.schemaVersion === 1 &&
     ["analysis", "approval", "execution"].includes(String(payload.stage)) &&
     payload.analysisId === receipt.analysisId &&

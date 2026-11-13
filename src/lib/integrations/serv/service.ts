@@ -70,7 +70,7 @@ export async function extractIntent(input: {
 
   if (isServConfigured()) {
     const result = await callServStructured({
-      name: "commitmentguard_intent",
+      name: "trycommit_intent",
       system: SERV_SAFETY_RULES,
       user: intentExtractionPrompt({
         request: input.request,
@@ -347,7 +347,7 @@ async function extractOfferCore(input: {
 
   if (isServConfigured() && !input.forceManualParser) {
     const result = await callServStructured({
-      name: "commitmentguard_offer_terms",
+      name: "trycommit_offer_terms",
       system: SERV_SAFETY_RULES,
       user: offerExtractionPrompt({
         documentLabel: input.documentLabel,
@@ -650,7 +650,7 @@ export async function explainAnalysis(input: {
   });
 
   const result = await callServStructured({
-    name: "commitmentguard_explanation",
+    name: "trycommit_explanation",
     system: SERV_SAFETY_RULES,
     user: explanationInput,
     schema: ServExplanationSchema,

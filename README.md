@@ -1,10 +1,10 @@
-# CommitmentGuard
+# trycommit
 
 **Understand the consequence before you consent.**
 
-CommitmentGuard is a commitment consequence-analysis and consent layer for AI
+trycommit is a commitment consequence-analysis and consent layer for AI
 assistants that act on a household's behalf. When an agent wants to switch a
-provider, sign a contract or pay on someone's behalf, CommitmentGuard prices the
+provider, sign a contract or pay on someone's behalf, trycommit prices the
 **total** commitment — not the advertised price — checks it against hard
 household constraints, and refuses to move until a human has explicitly
 consented to the material consequences.
@@ -88,7 +88,7 @@ npm run lint
 npm run build       # production build with Cache Components + partial prefetching
 ```
 
-Latest verified state: typecheck clean, **37/37 vitest tests** and **30/30
+Latest verified state: typecheck clean, **38/38 vitest tests** and **30/30
 benchmark cases** green, production build clean (landing `/` prerendered
 static, authenticated app routes dynamic or partial-prerendered). See
 [BUILD_NOTES.md](BUILD_NOTES.md) for what was checked and how.

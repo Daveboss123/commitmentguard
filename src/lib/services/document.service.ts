@@ -166,7 +166,7 @@ export async function fetchDocumentFromUrl(input: {
       signal: AbortSignal.timeout(10_000),
       headers: {
         Accept: "text/html, text/plain, text/markdown;q=0.9",
-        "User-Agent": "CommitmentGuardDemo/0.1 (illustrative demo fetch)",
+        "User-Agent": "trycommitDemo/0.1 (illustrative demo fetch)",
       },
     });
   } catch {

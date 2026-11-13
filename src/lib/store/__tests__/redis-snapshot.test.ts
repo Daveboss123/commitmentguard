@@ -21,7 +21,7 @@ function harness() {
   const create = () => createRedisSnapshotStore({
     url: "https://redis.test",
     token: "test-only",
-    key: "commitmentguard:test",
+    key: "trycommit:test",
     seed: () => ({ count: 0 }),
     validate: (v): v is { count: number } => Boolean(v && typeof v === "object" && "count" in v),
     fetcher,
@@ -59,9 +59,9 @@ describe("shared Redis snapshot store", () => {
 
   it("never replaces corrupt existing data with a seed", async () => {
     const { values, create } = harness();
-    values.set("commitmentguard:test", "corrupt-data");
+    values.set("trycommit:test", "corrupt-data");
     await expect(create().read()).rejects.toMatchObject({ code: "STORAGE_UNAVAILABLE" });
-    expect(values.get("commitmentguard:test")).toBe("corrupt-data");
+    expect(values.get("trycommit:test")).toBe("corrupt-data");
   });
 
   it("fails closed on HTTP-200 Redis errors", async () => {

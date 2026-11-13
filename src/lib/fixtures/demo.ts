@@ -21,7 +21,7 @@ export const DEMO_REQUEST =
 const EXTRACTED_AT = "2026-11-07T09:00:00.000Z";
 
 export const DOC_CURRENT = `NORTHLINE DEMO — HOUSEHOLD SERVICE SUMMARY
-Illustrative terms only. Synthetic data for the CommitmentGuard demo. Not a real provider contract.
+Illustrative terms only. Synthetic data for the trycommit demo. Not a real provider contract.
 
 Broadband — Home 300
 Monthly charge: $45.00 per month.
@@ -38,7 +38,7 @@ The bundle discount is applied to the household account.
 Minimum term: month-to-month.`;
 
 export const DOC_OFFER_A = `BRIGHTWAVE DEMO — INTRODUCTORY HOME 500
-Illustrative terms only. Synthetic offer for the CommitmentGuard demo. Not a real provider contract.
+Illustrative terms only. Synthetic offer for the trycommit demo. Not a real provider contract.
 
 Monthly price: $30.00 per month for the first 6 months.
 Standard price: $55.00 per month after the promotional period.
@@ -52,7 +52,7 @@ Data allowance: unlimited.
 Family mobile bundle: This offer is broadband-only and does not preserve the Northline family mobile bundle discount.`;
 
 export const DOC_OFFER_B = `HARBORLINK DEMO — FLEXIBLE HOME 300
-Illustrative terms only. Synthetic offer for the CommitmentGuard demo. Not a real provider contract.
+Illustrative terms only. Synthetic offer for the trycommit demo. Not a real provider contract.
 
 Monthly price: $35.00 per month.
 Promotional period: none. The monthly price is the standard price.
@@ -67,7 +67,7 @@ Data allowance: unlimited.
 Family mobile bundle: The existing Northline family mobile bundle discount is retained.`;
 
 export const DOC_OFFER_C = `METRONEST DEMO — HOME PLUS
-Illustrative terms only. Synthetic offer for the CommitmentGuard demo. Not a real provider contract.
+Illustrative terms only. Synthetic offer for the trycommit demo. Not a real provider contract.
 
 Monthly price: $35.00 per month for the first 12 months.
 Promotional period: 12 months.

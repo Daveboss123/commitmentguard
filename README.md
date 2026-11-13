@@ -88,10 +88,15 @@ npm run lint
 npm run build       # production build with Cache Components + partial prefetching
 ```
 
-Latest verified state: typecheck clean, **24/24 vitest tests** and **30/30
+Latest verified state: typecheck clean, **37/37 vitest tests** and **30/30
 benchmark cases** green, production build clean (landing `/` prerendered
 static, authenticated app routes dynamic or partial-prerendered). See
 [BUILD_NOTES.md](BUILD_NOTES.md) for what was checked and how.
+
+The hosted demo uses shared Redis storage so confirmed intents and receipts
+survive serverless instance changes. Kite sessions and execution remain
+**simulated**, with no real funds moved. This is shared demo state, not a
+production multi-tenant database.
 
 ## Measured results (see [BENCHMARK.md](BENCHMARK.md))
 

@@ -45,6 +45,9 @@ unknown, changed, expired or over-cap**:
 | Kite session total above `KITE_MAX_TOTAL_USDC`, or per-tx above `KITE_MAX_PER_TX_USDC` | `KITE_BUDGET_EXCEEDED`, nothing executed |
 | Kite session expired or exhausted | `KITE_SESSION_EXPIRED` / `EXHAUSTED`, nothing executed |
 | Second execution attempt | `EXECUTION_ALREADY_SUBMITTED` — refused **by state**, not by a disabled button |
+| Concurrent execution attempts | Atomic `submitted` reservation before the adapter call; only one request can submit |
+| Adapter timeout after submission | Remains `submitted` / outcome unknown; no automatic resubmission or payment-success claim |
+| Shared store read/write failure | `STORAGE_UNAVAILABLE`; no silent fixture reset or successful-write claim |
 | SERV mis-configured or failing | typed error; no silent fallback that could steer a decision |
 | Unexpected error in an API route | typed `INTERNAL_ERROR`, no stack or internal detail leaked |
 
@@ -88,6 +91,11 @@ detected).
 - `verifyReceipt()` recomputes the hash from the payload and checks the chain
   link; the UI re-verifies rather than trusting the stored value. The verify
   button on every receipt page demonstrates this on demand.
+- The verifier also checks the payload envelope, linked analysis id/hash and
+  the actual hash-linked ancestry. It recomputes ancestor payload hashes and
+  checks household, sequence, missing links, cycles and required stage order.
+  `valid` means the current payload hash matches; `verified` combines these
+  checks. Neither means a signature or provider-authentication check occurred.
 - The complete household export (`/api/households/[id]/export`) includes
   receipts and audit events so the whole chain can be rechecked
   independently. Session tokens and secrets are never included.
@@ -107,6 +115,10 @@ detected).
   database; a production deployment would sit Postgres behind the existing
   repository seam (the driver seam in `src/lib/store/`), with row-level
   authorization re-checked in the same services.
+- The hosted Redis driver uses fresh snapshots and atomic compare-and-set
+  writes. Binding is re-derived inside consent/execution mutation snapshots,
+  including conflict retries. Credentials stay server-side. This remains a
+  shared synthetic demo ledger, not tenant-isolated production storage.
 
 ## Threat model summary
 

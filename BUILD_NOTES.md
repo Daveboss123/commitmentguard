@@ -1,7 +1,51 @@
 # Build Notes
 
 Verification log and submission state for the SERV Hackathon 02 build.
-Last updated: **2026-11-12**.
+Last updated: **2026-11-13**.
+
+## 2026-11-13 — hosted consistency and final correctness follow-up
+
+Production testing on remediation commit `128bf81` exposed a real limitation:
+live SERV extraction and confirmation worked, but a later request could not
+find the newly created intent (`404`). `/api/health` confirmed `storage: memory`.
+The earlier smoke test was valid for its run; it did not prove reliability
+across serverless instances.
+
+The user approved shared storage and reuse of the existing free `precedent-demo`
+Redis database under an isolated, previously empty key:
+`commitmentguard:production:database:v1`. No existing Precedent data was
+overwritten or deleted, and no paid plan was enabled. Production environment
+variables were configured server-side (`UPSTASH_REDIS_REST_URL`,
+`UPSTASH_REDIS_REST_TOKEN`, `UPSTASH_REDIS_KEY`); preview is not pointed at that
+production key.
+
+Code hardening:
+
+- Redis reads always fetch fresh snapshots. Writes use atomic Lua
+  compare-and-set and replay **database-only** callbacks on conflicts.
+- Storage failures return `STORAGE_UNAVAILABLE` instead of silently resetting
+  to seed data or claiming persistence succeeded. Corrupt data is not replaced.
+- Simulated Kite sessions live in shared storage, not an instance-local map.
+  Caps are compared using integer-safe decimal-string arithmetic.
+- Execution reserves `submitted` atomically before the adapter call; a timeout
+  leaves an unknown/pending outcome, never an automatic retry or claimed success.
+- Consent and execution re-derive binding inside the atomic mutation snapshot.
+- Receipt stage checks traverse actual ancestry, including recomputed ancestor
+  payload hashes, household/sequence checks, required stages and cycle detection.
+  Signatures, source authenticity and real settlement remain **not checked**.
+- Scenario decimal inputs are parsed without floating-point rounding. Invalid
+  or over-precision amounts are rejected, not converted to a missing limit.
+- `connection()` precedes session-expiry clock reads in page context and login.
+  The previously observed local prerender warning is gone (page console checked).
+- Placeholder-brand footer replaced with a synthetic-data build note; product
+  naming remains CommitmentGuard.
+
+Local verification: typecheck clean; lint clean; **37/37 tests across 5 files**;
+production build clean. Added tests cover decimal precision, two-instance reads,
+CAS conflicts, corrupt data, HTTP-200 Redis errors, failed writes, competing
+execute requests, adapter timeouts and disconnected/corrupt receipt ancestors.
+
+Production verification for this follow-up is recorded below after deployment.
 
 ## 2026-11-12 — monetary reconciliation, verification surfaces, scenario sandbox
 
@@ -182,9 +226,10 @@ The suite drives the real seeded repository through the service layer:
 
 - Local dev: `KITE_MODE=cli` (real `kpass` for status probes) + simulated
   execution; `DEMO_PERSIST=true` writes `.data/db.json`.
-- Hosted demo: `KITE_MODE=mock`, `DEMO_PERSIST=false` (in-memory driver) —
-  the demo state is seeded fresh; nothing real is paid; no secrets are
-  client-side.
+- Hosted demo: `KITE_MODE=mock`, `DEMO_PERSIST=false`, with the shared Upstash
+  driver configured. Synthetic demo state persists across instances; nothing
+  real is paid and no secrets are client-side. Memory is only the unconfigured
+  fallback and cannot guarantee hosted multi-request continuity.
 - `SERV_API_KEY` and `AUTH_SECRET` are the only required secrets.
 
 ## Known limitations (not hidden)

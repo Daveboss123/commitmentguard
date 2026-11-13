@@ -1,6 +1,8 @@
 import "server-only";
 import { randomUUID } from "node:crypto";
-import { serverNow } from "@/lib/store/database";
+import { getDatabase, mutateDatabase, serverNow } from "@/lib/store/database";
+import type { Database } from "@/lib/domain/types";
+import { compareUsdcAmounts } from "@/lib/domain/money";
 import type {
   CreateKiteSessionInput,
   KiteAdapter,
@@ -11,22 +13,24 @@ import type {
   KiteStatus,
 } from "./types";
 
-interface MockSession {
-  request: KiteSessionRequest;
-  approved: boolean;
-  executed: boolean;
-  expiresAtMs: number;
-}
+type MockSession = NonNullable<Database["simulatedKiteSessions"]>[number];
 
-const globalMock = globalThis as typeof globalThis & {
-  __commitmentGuardMockKite?: Map<string, MockSession>;
-};
-
-function sessions(): Map<string, MockSession> {
-  if (!globalMock.__commitmentGuardMockKite) {
-    globalMock.__commitmentGuardMockKite = new Map();
-  }
-  return globalMock.__commitmentGuardMockKite;
+function statusOf(requestId: string, stored?: MockSession): KiteSessionStatus {
+  const expired = !stored || new Date(stored.expiresAt).getTime() <= Date.now();
+  const status = expired ? "session_expired" : stored.executed
+    ? "execution_succeeded" : stored.approved ? "session_active" : "session_pending_approval";
+  return {
+    requestId,
+    status,
+    active: status === "session_active",
+    sessionId: stored?.sessionId ?? null,
+    approvalUrl: null,
+    expiresAt: stored?.expiresAt ?? null,
+    simulated: true,
+    note: expired ? "Unknown or expired simulated session. Nothing can execute."
+      : "Simulated session state only. No Passport authorization or funds movement occurred.",
+    raw: null,
+  };
 }
 
 function ttlToMs(ttl: string): number {
@@ -79,81 +83,44 @@ export class KiteMockAdapter implements KiteAdapter {
       note: "Simulated Kite session. No Passport approval link exists in mock mode; use the in-app simulator.",
       raw: null,
     };
-    sessions().set(requestId, {
-      request,
-      approved: false,
-      executed: false,
-      expiresAtMs,
+    await mutateDatabase((database) => {
+      database.simulatedKiteSessions ??= [];
+      database.simulatedKiteSessions.push({
+        requestId,
+        sessionId: request.sessionId!,
+        maxTotalUsdc: input.maxTotalUsdc,
+        maxPerTxUsdc: input.maxPerTxUsdc,
+        expiresAt: request.expiresAt!,
+        approved: false,
+        executed: false,
+      });
     });
     return request;
   }
 
   async getSessionStatus(requestId: string): Promise<KiteSessionStatus> {
-    const stored = sessions().get(requestId);
-    if (!stored) {
-      return {
-        requestId,
-        status: "session_expired",
-        active: false,
-        sessionId: null,
-        approvalUrl: null,
-        expiresAt: null,
-        simulated: true,
-        note: "Unknown simulated session. It cannot be executed.",
-        raw: null,
-      };
-    }
-    const expired = stored.expiresAtMs < Date.now();
-    const status = expired
-      ? "session_expired"
-      : stored.executed
-        ? "execution_succeeded"
-        : stored.approved
-          ? "session_active"
-          : "session_pending_approval";
-    return {
-      requestId,
-      status,
-      active: status === "session_active",
-      sessionId: stored.request.sessionId,
-      approvalUrl: null,
-      expiresAt: stored.request.expiresAt,
-      simulated: true,
-      note: expired
-        ? "Simulated session expired. Execution is refused."
-        : stored.approved
-          ? "Simulated approval recorded. Execution is allowed while the session is active."
-          : "Awaiting simulated approval inside CommitmentGuard.",
-      raw: null,
-    };
+    const database = await getDatabase();
+    return statusOf(requestId, database.simulatedKiteSessions?.find((item) => item.requestId === requestId));
   }
 
-  simulateApproval(requestId: string): KiteSessionStatus {
-    const stored = sessions().get(requestId);
-    if (stored && stored.expiresAtMs >= Date.now()) {
-      stored.approved = true;
-    }
-    return {
-      requestId,
-      status: !stored
-        ? "session_expired"
-        : stored.expiresAtMs < Date.now()
-          ? "session_expired"
-          : "session_active",
-      active: Boolean(stored && stored.expiresAtMs >= Date.now()),
-      sessionId: stored?.request.sessionId ?? null,
-      approvalUrl: null,
-      expiresAt: stored?.request.expiresAt ?? null,
-      simulated: true,
-      note: "Simulated Passport approval recorded. No real authorization occurred.",
-      raw: null,
-    };
+  async simulateApproval(requestId: string): Promise<KiteSessionStatus> {
+    return mutateDatabase((database) => {
+      const stored = database.simulatedKiteSessions?.find((item) => item.requestId === requestId);
+      if (stored && new Date(stored.expiresAt).getTime() > Date.now() && !stored.executed) {
+        stored.approved = true;
+      }
+      return statusOf(requestId, stored);
+    });
   }
 
   async executePaidRequest(
     input: KitePaidRequest,
   ): Promise<KiteExecutionResult> {
-    const stored = sessions().get(input.requestId);
+    return mutateDatabase((database) => this.executeSimulated(database, input));
+  }
+
+  private executeSimulated(database: Database, input: KitePaidRequest): KiteExecutionResult {
+    const stored = database.simulatedKiteSessions?.find((item) => item.requestId === input.requestId);
     if (!stored) {
       return {
         status: "failed",
@@ -167,7 +134,7 @@ export class KiteMockAdapter implements KiteAdapter {
         raw: null,
       };
     }
-    if (stored.expiresAtMs < Date.now()) {
+    if (new Date(stored.expiresAt).getTime() <= Date.now()) {
       return {
         status: "failed",
         externalReference: null,
@@ -194,9 +161,16 @@ export class KiteMockAdapter implements KiteAdapter {
       };
     }
 
-    const amount = Number.parseFloat(input.maxAmountUsdc);
-    const cap = Number.parseFloat(stored.request.maxTotalUsdc);
-    if (!Number.isFinite(amount) || amount <= 0 || amount > cap) {
+    if (stored.executed) {
+      return {
+        status: "failed", externalReference: null, amountUsdc: null,
+        providerActivation: "not_integrated", simulated: true, responseSummary: null,
+        errorCode: "EXECUTION_ALREADY_SUBMITTED", note: "Duplicate simulated execution refused.", raw: null,
+      };
+    }
+    if (compareUsdcAmounts(input.maxAmountUsdc, "0") <= 0 ||
+      compareUsdcAmounts(input.maxAmountUsdc, stored.maxTotalUsdc) > 0 ||
+      compareUsdcAmounts(input.maxAmountUsdc, stored.maxPerTxUsdc) > 0) {
       return {
         status: "failed",
         externalReference: null,

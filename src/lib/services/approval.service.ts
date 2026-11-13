@@ -18,7 +18,7 @@ import {
   type HouseholdAccess,
 } from "@/lib/store/repository";
 import { ApiError } from "@/lib/http/errors";
-import { assertAnalysisCurrent } from "./analysis.service";
+import { assertAnalysisCurrent, assertAnalysisSnapshotCurrent } from "./analysis.service";
 import { appendReceipt } from "./receipt.service";
 
 export interface CreateApprovalInput {
@@ -110,7 +110,7 @@ export async function createApproval(
     );
   }
 
-  const current = await assertAnalysisCurrent(analysis);
+  await assertAnalysisCurrent(analysis);
 
   if (input.decision === "approve") {
     assertApprovalBasis(analysis, input.acknowledgedConsequences);
@@ -119,6 +119,7 @@ export async function createApproval(
   const result = await mutateDatabase((database) => {
     const storedAnalysis = database.analyses.find((item) => item.id === analysis.id);
     if (!storedAnalysis) throw new ApiError("NOT_FOUND", "Analysis not found.");
+    const current = assertAnalysisSnapshotCurrent(storedAnalysis, database);
 
     if (input.decision === "approve") {
       const existing = database.approvals.find(

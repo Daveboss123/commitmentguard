@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import type {
   Analysis,
   Approval,
+  Database,
   DecisionReceipt,
   Execution,
   ExecutionStatus,
@@ -22,7 +23,8 @@ import {
   type HouseholdAccess,
 } from "@/lib/store/repository";
 import { ApiError } from "@/lib/http/errors";
-import { assertAnalysisCurrent } from "./analysis.service";
+import { assertAnalysisCurrent, assertAnalysisSnapshotCurrent } from "./analysis.service";
+import { assertApprovalBasis } from "./approval.service";
 import { appendReceipt } from "./receipt.service";
 import {
   getKiteAdapter,
@@ -31,6 +33,7 @@ import {
 } from "@/lib/integrations/kite/factory";
 import type {
   KiteSessionRequest,
+  KiteExecutionResult,
   KiteSessionStatus,
   KiteStatus,
 } from "@/lib/integrations/kite/types";
@@ -63,6 +66,22 @@ function assertEnvCaps(input: { maxTotalUsdc: string; maxPerTxUsdc: string }): v
       "The per-transaction cap cannot exceed the session total.",
     );
   }
+}
+
+function assertApprovalSnapshot(database: Database, approvalId: string) {
+  const approval = database.approvals.find((item) => item.id === approvalId);
+  const analysis = database.analyses.find((item) => item.id === approval?.analysisId);
+  if (!approval || !analysis) throw new ApiError("APPROVAL_STALE", "The execution basis no longer exists.");
+  if (approval.decision !== "approve") throw new ApiError("APPROVAL_REQUIRED", "Consent is required.");
+  if (new Date(approval.expiresAt).getTime() <= Date.now()) {
+    throw new ApiError("APPROVAL_EXPIRED", "The approval expired. Nothing can execute.");
+  }
+  const current = assertAnalysisSnapshotCurrent(analysis, database);
+  if (approval.analysisHash !== analysis.inputHash || approval.offerVersion !== current.offer.offerVersion) {
+    throw new ApiError("APPROVAL_STALE", "The approval no longer matches the ledger.");
+  }
+  assertApprovalBasis(analysis, approval.acknowledgedConsequences);
+  return { approval, analysis, offer: current.offer, intent: current.intent };
 }
 
 async function loadVerifiedApproval(input: {
@@ -220,6 +239,11 @@ export async function startExecution(
   };
 
   await mutateDatabase((db) => {
+    assertApprovalSnapshot(db, input.approvalId);
+    if (db.executions.some((item) => item.approvalId === input.approvalId &&
+      ["pending_authorization", "authorized", "submitted", "succeeded"].includes(item.status))) {
+      throw new ApiError("EXECUTION_ALREADY_SUBMITTED", "An execution already exists for this approval.");
+    }
     db.executions.push(execution);
     appendAudit(db, {
       householdId: verified.analysis.householdId,
@@ -256,11 +280,12 @@ export async function refreshExecution(executionId: string): Promise<Execution> 
 
   const adapter = getKiteAdapter();
   const status = await adapter.getSessionStatus(execution.kiteRequestId);
-  const mapped = mapSessionStatus(status, execution.status);
 
   return mutateDatabase((db) => {
     const stored = db.executions.find((item) => item.id === executionId);
     if (!stored) throw new ApiError("EXECUTION_NOT_FOUND", "Execution not found.");
+    if (["submitted", "succeeded", "cancelled"].includes(stored.status)) return { ...stored };
+    const mapped = mapSessionStatus(status, stored.status);
     const changed =
       stored.status !== mapped.executionStatus ||
       stored.sessionStatus !== status.status;
@@ -303,11 +328,17 @@ export async function simulateKiteApproval(
   if (!execution.kiteRequestId) {
     throw new ApiError("KITE_SESSION_EXPIRED", "This execution has no Kite session.");
   }
-  const status = adapter.simulateApproval(execution.kiteRequestId);
+  if (["submitted", "succeeded", "cancelled"].includes(execution.status)) {
+    throw new ApiError("EXECUTION_ALREADY_SUBMITTED", "A completed or cancelled execution cannot be reauthorized.");
+  }
+  const status = await adapter.simulateApproval(execution.kiteRequestId);
 
   return mutateDatabase((db) => {
     const stored = db.executions.find((item) => item.id === executionId);
     if (!stored) throw new ApiError("EXECUTION_NOT_FOUND", "Execution not found.");
+    if (["submitted", "succeeded", "cancelled"].includes(stored.status)) {
+      throw new ApiError("EXECUTION_ALREADY_SUBMITTED", "This execution cannot be reauthorized.");
+    }
     stored.status = status.active ? "authorized" : "failed";
     stored.sessionStatus = status.status;
     stored.updatedAt = serverNow();
@@ -371,19 +402,39 @@ export async function executeApprovedPayment(
   );
   assertAmount(amount, "Execution amount");
 
-  const result = await adapter.executePaidRequest({
-    requestId: execution.kiteRequestId,
-    sessionId: refreshed.kiteSessionId,
-    url: serverConfig.kite.checkoutUrl || "https://demo.invalid/commitmentguard-checkout",
-    method: "POST",
-    body: {
-      orderId: `order_${verified.analysis.id}`,
-      analysisId: verified.analysis.id,
-      approvalId: verified.approval.id,
-    },
-    maxAmountUsdc: amount,
-    idempotencyKey: refreshed.id,
+  // Reserve the submission atomically before calling the adapter. Competing
+  // requests see submitted and fail; a timeout leaves an unknown/pending state,
+  // never a claimed success or an automatically retried payment.
+  const reserved = await mutateDatabase((db) => {
+    const stored = db.executions.find((item) => item.id === executionId);
+    if (!stored) throw new ApiError("EXECUTION_NOT_FOUND", "Execution not found.");
+    if (stored.status !== "authorized" || stored.externalReference) {
+      throw new ApiError("EXECUTION_ALREADY_SUBMITTED", "Execution is no longer available for submission.");
+    }
+    const current = assertApprovalSnapshot(db, stored.approvalId);
+    stored.status = "submitted";
+    stored.updatedAt = serverNow();
+    return current;
   });
+
+  let result: KiteExecutionResult;
+  try {
+    result = await adapter.executePaidRequest({
+      requestId: execution.kiteRequestId,
+      sessionId: refreshed.kiteSessionId,
+      url: serverConfig.kite.checkoutUrl || "https://demo.invalid/commitmentguard-checkout",
+      method: "POST",
+      body: {
+        orderId: `order_${reserved.analysis.id}`,
+        analysisId: reserved.analysis.id,
+        approvalId: reserved.approval.id,
+      },
+      maxAmountUsdc: amount,
+      idempotencyKey: refreshed.id,
+    });
+  } catch {
+    throw new ApiError("KITE_EXECUTION_FAILED", "The adapter did not confirm an outcome. Execution remains submitted/unknown; do not resubmit. No payment success is claimed.");
+  }
 
   return mutateDatabase((db) => {
     const stored = db.executions.find((item) => item.id === executionId);
@@ -420,8 +471,8 @@ export async function executeApprovedPayment(
 
     const receipt = appendReceipt(db, {
       analysis: storedAnalysis,
-      intent: verified.intent,
-      offer: verified.offer,
+      intent: reserved.intent,
+      offer: reserved.offer,
       approval: storedApproval,
       execution: stored,
       stage: "execution",

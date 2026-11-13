@@ -65,22 +65,8 @@ export default async function ReceiptDetailPage({
   const chainOk =
     verification.chainValid === null || verification.chainValid === true;
 
-  const formatOk =
-    payload.kind === "commitmentguard.decision_receipt" &&
-    payload.schemaVersion === 1 &&
-    typeof payload.analysisId === "string" &&
-    typeof payload.stage === "string" &&
-    typeof payload.analysisHash === "string";
-  const linkedAnalysisOk = Boolean(
-    analysis &&
-      payload.analysisId === analysis.id &&
-      payload.analysisHash === analysis.inputHash,
-  );
-  const analysisReceiptExists = database.receipts.some(
-    (item) =>
-      item.analysisId === receipt.analysisId &&
-      item.receiptPayload.stage === "analysis",
-  );
+  const formatOk = verification.formatValid;
+  const linkedAnalysisOk = verification.linkedAnalysisValid;
 
   const verifierChecks: Array<{
     label: string;
@@ -107,7 +93,7 @@ export default async function ReceiptDetailPage({
         verification.chainValid === null
           ? "Genesis receipt: no previous hash is expected."
           : verification.chainValid
-            ? "The previous hash exists and matches the prior receipt."
+            ? "The preceding receipt belongs to this household, has the previous version, and its payload hash recomputes correctly."
             : "The previous hash does not identify an existing receipt.",
       state:
         verification.chainValid === null
@@ -126,12 +112,10 @@ export default async function ReceiptDetailPage({
     {
       label: "Stage order",
       detail:
-        stage === "analysis"
-          ? "This is the analysis-stage receipt."
-          : analysisReceiptExists
-            ? "An analysis-stage receipt exists earlier in the chain."
-            : "No analysis-stage receipt was found for this chain.",
-      state: stage === "analysis" || analysisReceiptExists ? "pass" : "fail",
+        verification.stageOrderValid
+          ? "The actual hash-linked ancestry was traversed: required earlier stages exist in order, with no missing links or cycles."
+          : "The hash-linked ancestry is incomplete, corrupt, or missing a required earlier stage.",
+      state: verification.stageOrderValid ? "pass" : "fail",
     },
     {
       label: "Cryptographic signature",
@@ -180,7 +164,7 @@ export default async function ReceiptDetailPage({
         title="A record that can be checked, not just stored."
         description={`Receipt ${receipt.id} · ${formatDateTime(receipt.createdAt)}. The content hash is recomputed from the payload; the chain link is checked against the previous receipt.`}
         actions={
-          verification.valid && chainOk ? (
+          verification.verified ? (
             <Badge tone="ok" className="px-3 py-1 text-[12px]">
               <CheckCircle2 className="size-3.5" />
               Verified

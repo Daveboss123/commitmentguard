@@ -174,6 +174,10 @@ export function appendReceipt(
 }
 
 export interface ReceiptVerification {
+  verified: boolean;
+  formatValid: boolean;
+  linkedAnalysisValid: boolean;
+  stageOrderValid: boolean;
   valid: boolean;
   computedHash: string;
   storedHash: string;
@@ -183,12 +187,55 @@ export interface ReceiptVerification {
   checkedAt: string;
 }
 
+function stageOrderValid(database: Database, receipt: DecisionReceipt): boolean {
+  const ranks: Record<string, number> = { analysis: 0, approval: 1, execution: 2 };
+  const currentRank = ranks[String(receipt.receiptPayload.stage)];
+  if (currentRank === undefined) return false;
+  const visited = new Set<string>([receipt.contentHash]);
+  const earlierStages = new Set<string>();
+  let child = receipt;
+  let rank = currentRank;
+  while (child.previousReceiptHash) {
+    if (visited.has(child.previousReceiptHash)) return false;
+    visited.add(child.previousReceiptHash);
+    const parent = database.receipts.find((item) => item.contentHash === child.previousReceiptHash);
+    if (!parent || parent.householdId !== receipt.householdId ||
+      parent.receiptVersion !== child.receiptVersion - 1 ||
+      parent.createdAt > child.createdAt ||
+      hashPayload(parent.receiptPayload) !== parent.contentHash) return false;
+    if (parent.analysisId === receipt.analysisId) {
+      const stage = String(parent.receiptPayload.stage);
+      const parentRank = ranks[stage];
+      if (parentRank === undefined || parentRank > rank ||
+        parent.receiptPayload.analysisHash !== receipt.receiptPayload.analysisHash) return false;
+      earlierStages.add(stage);
+      rank = parentRank;
+    }
+    child = parent;
+  }
+  return child.receiptVersion === 1 &&
+    (currentRank === 0 || earlierStages.has("analysis")) &&
+    (currentRank < 2 || earlierStages.has("approval"));
+}
+
 export function verifyReceipt(
   database: Database,
   receipt: DecisionReceipt,
 ): ReceiptVerification {
   const computedHash = hashPayload(receipt.receiptPayload);
   const valid = computedHash === receipt.contentHash;
+  const payload = receipt.receiptPayload;
+  const formatValid = payload.kind === "commitmentguard.decision_receipt" &&
+    payload.schemaVersion === 1 &&
+    ["analysis", "approval", "execution"].includes(String(payload.stage)) &&
+    payload.analysisId === receipt.analysisId &&
+    payload.householdId === receipt.householdId &&
+    payload.createdAt === receipt.createdAt &&
+    typeof payload.analysisHash === "string";
+  const analysis = database.analyses.find((item) => item.id === receipt.analysisId);
+  const linkedAnalysisValid = Boolean(analysis &&
+    analysis.householdId === receipt.householdId && payload.analysisHash === analysis.inputHash);
+  const stagesValid = stageOrderValid(database, receipt);
 
   let chainValid: boolean | null = null;
   let previousReceiptFound = false;
@@ -197,10 +244,17 @@ export function verifyReceipt(
       (candidate) => candidate.contentHash === receipt.previousReceiptHash,
     );
     previousReceiptFound = Boolean(previous);
-    chainValid = Boolean(previous && previous.contentHash === receipt.previousReceiptHash);
+    chainValid = Boolean(previous && previous.householdId === receipt.householdId &&
+      previous.receiptVersion === receipt.receiptVersion - 1 &&
+      previous.createdAt <= receipt.createdAt &&
+      hashPayload(previous.receiptPayload) === previous.contentHash);
   }
 
   return {
+    verified: valid && formatValid && linkedAnalysisValid && stagesValid && chainValid !== false,
+    formatValid,
+    linkedAnalysisValid,
+    stageOrderValid: stagesValid,
     valid,
     computedHash,
     storedHash: receipt.contentHash,

@@ -13,6 +13,7 @@ import { serverConfig } from "@/lib/app/config";
 import { policy } from "@/lib/fixtures/demo";
 
 import { ApiError } from "@/lib/http/errors";
+import { KiteMockAdapter } from "@/lib/integrations/kite/mock";
 
 /**
  * The services call `requireSession()` to resolve the acting member. In these
@@ -261,6 +262,47 @@ describe("approval basis gate", () => {
 });
 
 describe("kite payment execution", () => {
+  it("allows only one adapter call when two execute requests race", async () => {
+    const { approval } = await approveCompliantOffer();
+    const execution = await startExecution({
+      approvalId: approval.approval.id,
+      maxTotalUsdc: "0.05",
+      maxPerTxUsdc: "0.05",
+    });
+    await simulateKiteApproval(execution.id);
+    const spy = vi.spyOn(KiteMockAdapter.prototype, "executePaidRequest");
+    try {
+      const results = await Promise.allSettled([
+        executeApprovedPayment(execution.id), executeApprovedPayment(execution.id),
+      ]);
+      expect(results.filter((item) => item.status === "fulfilled")).toHaveLength(1);
+      expect(spy).toHaveBeenCalledTimes(1);
+      expect((await getDatabase()).receipts.filter((item) => item.receiptPayload.stage === "execution")).toHaveLength(1);
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  it("retains submitted/unknown state after an adapter exception without retrying", async () => {
+    const { approval } = await approveCompliantOffer();
+    const execution = await startExecution({
+      approvalId: approval.approval.id,
+      maxTotalUsdc: "0.05",
+      maxPerTxUsdc: "0.05",
+    });
+    await simulateKiteApproval(execution.id);
+    const spy = vi.spyOn(KiteMockAdapter.prototype, "executePaidRequest")
+      .mockRejectedValueOnce(new Error("Timeout; outcome unknown"));
+    try {
+      await expect(executeApprovedPayment(execution.id)).rejects.toThrow();
+      expect((await getDatabase()).executions.find((item) => item.id === execution.id)?.status).toBe("submitted");
+      await expect(executeApprovedPayment(execution.id)).rejects.toMatchObject({ code: "EXECUTION_ALREADY_SUBMITTED" });
+      expect(spy).toHaveBeenCalledTimes(1);
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
   it("enforces caps, requires approval, and refuses a duplicate execution", async () => {
     const { approval } = await approveCompliantOffer();
     const { maxTotalUsdc, maxPerTxUsdc } = serverConfig.kite;
@@ -374,6 +416,8 @@ describe("scenario sandbox", () => {
   it("can turn an allowed offer into a blocked one by tightening a limit", async () => {
     const created = await analyse("offer_harborlink_b");
     expect(created.analysis.decision).toBe("allow");
+    const before = await getDatabase();
+    const counts = [before.analyses.length, before.receipts.length];
 
     const evaluation = await runAnalysisScenario(created.analysis.id, {
       minimumMonthlySavingMinor: 1_500,
@@ -382,6 +426,8 @@ describe("scenario sandbox", () => {
     expect(evaluation.scenario.decision).toBe("block");
     expect(evaluation.scenario.reasonCodes).toContain("MINIMUM_SAVING_NOT_MET");
     expect(evaluation.base.decision).toBe("allow");
+    const after = await getDatabase();
+    expect([after.analyses.length, after.receipts.length]).toEqual(counts);
   });
 });
 
@@ -412,6 +458,39 @@ describe("decision receipts", () => {
     expect(secondVerification.valid).toBe(true);
     expect(secondVerification.chainValid).toBe(true);
     expect(secondVerification.previousReceiptFound).toBe(true);
+    expect(secondVerification.verified).toBe(true);
+    expect(secondVerification.stageOrderValid).toBe(true);
+  });
+
+  it("rejects an approval whose analysis receipt exists but is not in its ancestry", async () => {
+    const created = await analyse("offer_harborlink_b");
+    const database = await getDatabase();
+    const second = appendReceipt(database, {
+      analysis: created.analysis,
+      intent: confirmedIntent,
+      offer: database.offers.find((item) => item.id === created.analysis.offerId) ?? null,
+      stage: "approval",
+      actorUserId: "user_demo_owner",
+    });
+    second.previousReceiptHash = null;
+    expect(verifyReceipt(database, second).valid).toBe(true);
+    expect(verifyReceipt(database, second).stageOrderValid).toBe(false);
+    expect(verifyReceipt(database, second).verified).toBe(false);
+  });
+
+  it("recomputes the preceding payload rather than trusting its stored hash", async () => {
+    const created = await analyse("offer_harborlink_b");
+    const database = await getDatabase();
+    const second = appendReceipt(database, {
+      analysis: created.analysis,
+      intent: confirmedIntent,
+      offer: database.offers.find((item) => item.id === created.analysis.offerId) ?? null,
+      stage: "approval",
+      actorUserId: "user_demo_owner",
+    });
+    created.receipt.receiptPayload.stage = "tampered";
+    expect(verifyReceipt(database, second).chainValid).toBe(false);
+    expect(verifyReceipt(database, second).verified).toBe(false);
   });
 
   it("marks a tampered payload as invalid even when the stored hash is untouched", async () => {

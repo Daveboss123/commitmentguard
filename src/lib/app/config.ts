@@ -37,6 +37,7 @@ export const serverConfig = {
   upstash: {
     url: process.env.UPSTASH_REDIS_REST_URL ?? "",
     token: process.env.UPSTASH_REDIS_REST_TOKEN ?? "",
+    key: process.env.UPSTASH_REDIS_KEY ?? "commitmentguard:database:v1",
   },
   proxySecret: process.env.PROXY_SECRET ?? "",
 } as const;

@@ -4,10 +4,10 @@ import path from "node:path";
 import type { Database } from "@/lib/domain/types";
 import { buildSeedDatabase } from "@/lib/fixtures/demo";
 import { serverConfig } from "@/lib/app/config";
+import { createRedisSnapshotStore } from "./redis-snapshot";
 
 const DATA_DIR = path.join(process.cwd(), ".data");
 const DATA_FILE = path.join(DATA_DIR, "db.json");
-const UPSTASH_KEY = "commitmentguard:database:v1";
 
 type DriverKind = "file" | "memory" | "upstash";
 
@@ -23,44 +23,27 @@ const globalStore = globalThis as typeof globalThis & {
 };
 
 function chooseDriver(): DriverKind {
+  if (Boolean(serverConfig.upstash.url) !== Boolean(serverConfig.upstash.token)) {
+    throw new Error("Shared storage requires both UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN.");
+  }
   if (serverConfig.upstash.url && serverConfig.upstash.token) return "upstash";
   if (serverConfig.demoPersist && !process.env.VERCEL) return "file";
   return "memory";
 }
 
-async function readUpstash(): Promise<Database | null> {
-  const response = await fetch(
-    `${serverConfig.upstash.url}/get/${encodeURIComponent(UPSTASH_KEY)}`,
-    {
-      headers: { Authorization: `Bearer ${serverConfig.upstash.token}` },
-      cache: "no-store",
-    },
-  );
-  if (!response.ok) {
-    throw new Error(`Upstash read failed with status ${response.status}`);
-  }
-  const body = (await response.json()) as { result?: string | null };
-  if (!body.result) return null;
-  return JSON.parse(body.result) as Database;
-}
-
-async function writeUpstash(database: Database): Promise<void> {
-  const response = await fetch(
-    `${serverConfig.upstash.url}/set/${encodeURIComponent(UPSTASH_KEY)}`,
-    {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${serverConfig.upstash.token}`,
-        "Content-Type": "text/plain",
-      },
-      body: JSON.stringify(database),
-      cache: "no-store",
-    },
-  );
-  if (!response.ok) {
-    throw new Error(`Upstash write failed with status ${response.status}`);
-  }
-}
+const sharedStore = createRedisSnapshotStore<Database>({
+  ...serverConfig.upstash,
+  seed: buildSeedDatabase,
+  validate: (value): value is Database => {
+    if (!value || typeof value !== "object" || !("meta" in value)) return false;
+    const candidate = value as Database;
+    return candidate.meta?.schemaVersion === 1 &&
+      ["households", "members", "policies", "commitments", "benefits",
+        "dependencies", "documents", "evidence", "intents", "offers", "analyses",
+        "approvals", "executions", "receipts", "auditEvents"]
+        .every((key) => Array.isArray(candidate[key as keyof Database]));
+  },
+});
 
 async function readFileStore(): Promise<Database | null> {
   try {
@@ -98,7 +81,6 @@ async function load(): Promise<Database> {
   cache.loaded = (async () => {
     let persisted: Database | null = null;
     try {
-      if (cache.driver === "upstash") persisted = await readUpstash();
       if (cache.driver === "file") persisted = await readFileStore();
     } catch (error) {
       console.error("[commitmentguard] persistence read failed; using seed", {
@@ -110,7 +92,6 @@ async function load(): Promise<Database> {
     if (!persisted || !persisted.meta || persisted.meta.schemaVersion !== 1) {
       persisted = buildSeedDatabase();
       try {
-        if (cache.driver === "upstash") await writeUpstash(persisted);
         if (cache.driver === "file") await writeFileStore(persisted);
       } catch (error) {
         console.error("[commitmentguard] seed persist failed", {
@@ -128,45 +109,40 @@ async function load(): Promise<Database> {
 }
 
 export async function getDatabase(): Promise<Database> {
-  return load();
+  // Every Redis read is fresh. A process-global snapshot would make other
+  // serverless instances' confirmed writes invisible.
+  if (getCache().driver === "upstash") return sharedStore.read();
+  await load();
+  return getCache().database;
 }
 
 /**
- * Applies a mutation to the in-memory database, then persists it. The caller
- * receives the same object it mutated. This is deliberately a single-process
- * repository for the demo; the interface is what would be replaced by SQL.
+ * Mutators may only edit the supplied database. Shared-store CAS conflicts
+ * replay them on a fresh snapshot; no external service calls belong inside.
  */
 export async function mutateDatabase<T>(
   mutator: (database: Database) => T | Promise<T>,
 ): Promise<T> {
   const cache = getCache();
-  await load();
-
-  const result = await mutator(cache.database);
-
-  cache.writeQueue = cache.writeQueue.then(async () => {
-    try {
-      if (cache.driver === "upstash") await writeUpstash(cache.database);
-      if (cache.driver === "file") await writeFileStore(cache.database);
-    } catch (error) {
-      console.error("[commitmentguard] persistence write failed", {
-        driver: cache.driver,
-        message: error instanceof Error ? error.message : "unknown",
-      });
-    }
+  const task = cache.writeQueue.then(async () => {
+    if (cache.driver === "upstash") return sharedStore.mutate(mutator);
+    await load();
+    const draft = structuredClone(cache.database);
+    const result = await mutator(draft);
+    if (cache.driver === "file") await writeFileStore(draft);
+    cache.database = draft;
+    return result;
   });
-  await cache.writeQueue;
-
-  return result;
+  cache.writeQueue = task.then(() => undefined, () => undefined);
+  return task;
 }
 
 export async function resetDatabase(): Promise<Database> {
-  const cache = getCache();
   const seeded = buildSeedDatabase();
-  cache.database = seeded;
-  cache.loaded = Promise.resolve(seeded);
-  await mutateDatabase(() => undefined);
-  return seeded;
+  return mutateDatabase((database) => {
+    Object.assign(database, seeded, { simulatedKiteSessions: [] });
+    return database;
+  });
 }
 
 export function getStorageDriver(): DriverKind {

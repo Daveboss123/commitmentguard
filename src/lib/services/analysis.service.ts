@@ -2,6 +2,7 @@ import "server-only";
 import type {
   Analysis,
   Approval,
+  Database,
   DecisionReceipt,
   Execution,
   IntentContract,
@@ -291,6 +292,16 @@ export async function assertAnalysisCurrent(analysis: Analysis): Promise<{
   currentHash: string;
 }> {
   const database = await getDatabase();
+  return assertAnalysisSnapshotCurrent(analysis, database);
+}
+
+/** Same binding check inside the atomic write snapshot, including CAS retries. */
+export function assertAnalysisSnapshotCurrent(analysis: Analysis, database: Database): {
+  offer: Offer;
+  intent: IntentContract;
+  policy: UserPolicy;
+  currentHash: string;
+} {
   const offer = database.offers.find((item) => item.id === analysis.offerId);
   const intent = database.intents.find((item) => item.id === analysis.intentContractId);
   if (!offer || !intent) {

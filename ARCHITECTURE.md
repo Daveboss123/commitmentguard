@@ -144,12 +144,21 @@ placed outside handler `try/catch` so the prerender bail-out propagates.
 
 ## Storage
 
-`getDatabase()` / `mutateDatabase()` serialise all reads and writes through one
-cached `Database` object per process. The driver seam selects:
+`getDatabase()` / `mutateDatabase()` use the existing repository seam:
 
 - `file` — local JSON at `.data/db.json` (default in dev; atomic rename writes)
-- `memory` — per-process, used on serverless read-only filesystems
-- `upstash` — optional REST Redis for a hosted demo that keeps state
+- `memory` — per-process fallback for unconfigured demos; not reliable across
+  serverless instances
+- `upstash` — shared hosted demo state: every read fetches a fresh snapshot;
+  mutations use atomic Lua compare-and-set, retrying database-only callbacks on
+  conflicts. Storage errors fail closed instead of replacing data with seeds or
+  reporting a successful write. The namespace is set by `UPSTASH_REDIS_KEY`.
+
+Local mutations are serialized and edit a draft; the current snapshot is only
+replaced after a successful write. Simulated Kite session records live in the
+same database, not a process-global map. SERV/Kite calls remain outside mutation
+callbacks. Execution reserves `submitted` atomically before calling an adapter,
+preventing concurrent requests from both submitting.
 
 `resetDatabase()` reseeds the Morgan household; the interface is the seam a SQL
 repository would replace.
@@ -164,4 +173,6 @@ engine's output, not marketing copy. The authenticated `/app` segment exports
 static shell; blocking navigation is the truthful behaviour), so its routes
 render dynamic or as partial-prerendered shells with dynamic content.
 `/app/benchmark` calls `await connection()` before running so `randomUUID()`
-timestamp/ids are request-time, never captured in a shell.
+timestamp/ids are request-time, never captured in a shell. `getPageContext()`
+and `/login` also call `connection()` before decoding session expiry, so wall
+clock checks are performed against a real request.

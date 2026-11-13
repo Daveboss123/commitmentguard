@@ -453,6 +453,16 @@ export interface AuditEvent {
 }
 
 export interface Database {
+  /** Demo-only Kite simulator state; shared so serverless instances agree. */
+  simulatedKiteSessions?: Array<{
+    requestId: string;
+    sessionId: string;
+    maxTotalUsdc: string;
+    maxPerTxUsdc: string;
+    expiresAt: string;
+    approved: boolean;
+    executed: boolean;
+  }>;
   households: Household[];
   members: HouseholdMember[];
   commitments: Commitment[];

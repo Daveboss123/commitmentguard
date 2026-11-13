@@ -32,6 +32,7 @@ import { getPageContext } from "@/lib/page/context";
 import { getApprovalBundle } from "@/lib/services/approval.service";
 import { assertAnalysisCurrent } from "@/lib/services/analysis.service";
 import { serverConfig } from "@/lib/app/config";
+import { isKiteExecutionLive } from "@/lib/integrations/kite/factory";
 import { serverNow } from "@/lib/app/clock";
 import { formatDateTime, humanize } from "@/lib/format";
 
@@ -128,6 +129,22 @@ export default async function ApprovalDetailPage({
           </>
         }
       />
+
+      {!isKiteExecutionLive() ? (
+        <div className="mb-6">
+          <InlineNotice
+            tone="caution"
+            title="Simulated execution — no Passport session, no funds moved"
+          >
+            This deployment runs Kite in <strong>mock / simulated</strong> mode
+            with a {serverConfig.kite.maxTotalUsdc} USDC session cap. Approving
+            here records household consent only. The simulated approval and
+            payment steps never contact Kite, never move funds and never
+            activate a provider; the execution page labels every result{" "}
+            <strong>Simulated</strong>.
+          </InlineNotice>
+        </div>
+      ) : null}
 
       <div className="grid gap-6 lg:grid-cols-[1.15fr_0.85fr]">
         <div className="space-y-6">

@@ -3,6 +3,35 @@
 Verification log and submission state for the SERV Hackathon 02 build.
 Last updated: **2026-11-13**.
 
+## 2026-11-13 — reviewer checklist: executable proof and two UI clarifications
+
+Added the evidence a reviewer asked for, without changing the decision engine:
+
+- `src/lib/integrations/serv/__tests__/client.test.ts` (13 tests): strict
+  JSON-schema request, Zod validation, schema-feedback repair, three-attempt
+  bound, fenced JSON, `json_schema` → `json_object` fallback, no retry on 401,
+  one retry on 429, `ServNotConfiguredError` with zero network calls, and model
+  output carrying `decision` being stripped. Also proves `extractIntent` stores
+  `source: serv`, model, SERV response id, latency and the audit row, and
+  persists nothing when output never validates.
+- `src/lib/services/__tests__/integrity.test.ts` (8 tests): approval records the
+  offer version and becomes `APPROVAL_STALE` after a version bump with no
+  execution or execution receipt; `APPROVAL_EXPIRED`; `KITE_BUDGET_EXCEEDED`
+  for caps and at the adapter boundary; `KITE_SESSION_EXPIRED` with no receipt;
+  duplicate submission rejected; a three-stage chain verified by recomputation,
+  a tampered middle receipt failing chain and stage checks, and a forged
+  receipt with a valid-looking hash failing; unconfirmed SERV drafts cannot be
+  analysed.
+- UI: the analysis **Financial consequence** panel now states that 12- and
+  24-month figures are horizon spend, not an early-exit quote. The approval page
+  shows a caution notice that execution is simulated and no Passport session or
+  funds are involved whenever live Kite execution is not configured.
+- `VERIFY.md` maps every P0/P1 reviewer item and the seven-row test table to a
+  test name, route or endpoint. Linked from the README.
+
+`npm test` **62/62 across 9 files**, `npm run typecheck` and `npm run lint`
+clean. No video recapture and no change to demo fixtures or recorded state.
+
 ## 2026-11-13 — receipt layout fix and demo video
 
 A desktop layout bug was found while recording the walkthrough: the canonical

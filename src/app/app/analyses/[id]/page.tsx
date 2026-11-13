@@ -359,6 +359,12 @@ export default async function AnalysisDetailPage({
                 </KeyValue>
               </dl>
             </div>
+            <p className="border-t border-line px-5 py-3 text-[12px] leading-5 text-ink-muted">
+              The 12- and 24-month figures are total household spend over that
+              horizon — not an early-exit, buy-out or penalty quote. The engine
+              prices the visible line items and does not price leaving a
+              fixed-term contract early.
+            </p>
             <div className="border-t border-line">
               <ConsequenceItems items={financial} />
             </div>
